@@ -1,0 +1,9 @@
+{
+    "name": "depend",
+    "description": "Dependency Tool for D",
+    "copyright": "Copyright © 2015, Mario Kröplin",
+    "authors": ["Mario Kröplin"],
+    "license" : "MIT",
+    "dependencies": {},
+    "targetType": "executable"
+}
