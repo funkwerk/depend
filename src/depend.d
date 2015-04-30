@@ -6,6 +6,15 @@ import std.regex;
 import std.stdio;
 import std.typecons;
 
+const USAGE = `Usage: %s [options] FILE
+Process import dependencies as created by dmd with the --deps switch.
+Options:
+  --dot                 Print the dependency graph in the DOT language
+  -f, --filter REGEX    Filter source files  matching the regular expression
+  -h, --help            Display usage information, then exit
+  -p, --packages        Generalize to package dependencies
+  -t, --target FILE     Check against the PlantUML target dependencies`;
+
 alias Dependency = Tuple!(string, "client", string, "supplier");
 
 int main(string[] args)
@@ -13,6 +22,7 @@ int main(string[] args)
     import std.getopt : getopt;
 
     bool dot = false;
+    bool help = false;
     bool packages = false;
     string filter;
     string target;
@@ -29,6 +39,14 @@ int main(string[] args)
     {
         stderr.writeln("error: ", exception.msg);
         return 1;
+    }
+
+    if (help)
+    {
+        import std.path : baseName;
+
+        writefln(USAGE, args[0].baseName);
+        return 0;
     }
 
     File file = (args.length > 1) ? File(args[1]) : stdin;
@@ -144,7 +162,7 @@ void write(in Dependency[] dependencies)
     writeln("digraph Dependencies {");
     writeln("node [shape=box];");
     foreach (element; dependencies.elements)
-        writeln('"', element,'"');
+        writeln('"', element, '"');
     foreach (dependency; dependencies)
         writeln('"', dependency.client, '"', " -> ", '"', dependency.supplier, '"');
     writeln("}");
