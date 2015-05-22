@@ -25,15 +25,16 @@ int main(string[] args)
     bool help = false;
     bool packages = false;
     string filter;
-    string target;
+    string[] targets = null;
 
     try
     {
         getopt(args,
             "dot", &dot,
-            "filter", &filter,
-            "packages", &packages,
-            "target", &target);
+            "help|h", &help,
+            "filter|f", &filter,
+            "packages|p", &packages,
+            "target|t", &targets);
     }
     catch (Exception exception)
     {
@@ -53,13 +54,17 @@ int main(string[] args)
     auto pattern = regex(filter);
     Dependency[] actualDependencies = moduleDependencies(file, pattern);
 
-    if (!target.empty)
+    actualDependencies = actualDependencies.sort().uniq.array;
+    if (!targets.empty)
     {
         uint count = 0;
-        Dependency[] targetDependencies = plantUMLDependencies(File(target));
+        Dependency[] targetDependencies = null;
+
+        foreach (target; targets)
+            targetDependencies ~= plantUMLDependencies(File(target));
 
         targetDependencies.transitiveClosure;
-        foreach (dependency; actualDependencies.sort())
+        foreach (dependency; actualDependencies)
         {
             const client = dependency.client;
             const supplier = dependency.supplier;
@@ -105,56 +110,87 @@ int main(string[] args)
 
 Dependency[] moduleDependencies(RegEx)(File file, RegEx filter)
 {
-    import std.conv : to;
-
-    auto pattern = regex(r"(?P<client>[\w.]+)\s*\((?P<clientPath>.*)\)"
-        r"\s*:[^:]*:\s*(?P<supplier>[\w.]+)\s*\((?P<supplierPath>.*)\)");
     Dependency[] dependencies = null;
 
     foreach (line; file.byLine)
     {
-        auto captures = line.matchFirst(pattern);
+        dependencies ~= moduleDependencies(line, filter);
+    }
+    return dependencies;
+}
 
-        if (captures)
+Dependency[] moduleDependencies(RegEx)(in char[] line, RegEx filter)
+{
+    import std.conv : to;
+
+    enum pattern = regex(`(?P<client>[\w.]+)\s*\((?P<clientPath>.*)\)`
+        `\s*:[^:]*:\s*(?P<supplier>[\w.]+)\s*\((?P<supplierPath>.*)\)`);
+    Dependency[] dependencies = null;
+    auto captures = line.matchFirst(pattern);
+
+    if (captures)
+    {
+        const clientPath = captures["clientPath"];
+        const supplierPath = captures["supplierPath"];
+
+        if (clientPath.matchFirst(filter) && supplierPath.matchFirst(filter))
         {
-            const clientPath = captures["clientPath"];
-            const supplierPath = captures["supplierPath"];
+            const client = captures["client"].to!string;
+            const supplier = captures["supplier"].to!string;
 
-            if (clientPath.matchFirst(filter) && supplierPath.matchFirst(filter))
-            {
-                const client = captures["client"].to!string;
-                const supplier = captures["supplier"].to!string;
-
-                dependencies.add(Dependency(client, supplier));
-            }
+            dependencies ~= Dependency(client, supplier);
         }
     }
     return dependencies;
 }
 
+unittest
+{
+    const line = "depend (src/depend.d) : private : object (/usr/include/dmd/druntime/import/object.di)";
+
+    assert(moduleDependencies(line, regex("")) == [Dependency("depend", "object")]);
+    assert(moduleDependencies(line, regex("src")) == []);
+}
+
 Dependency[] plantUMLDependencies(File file)
 {
-    import std.conv : to;
-
-    auto pattern = regex(r"(?P<lhs>[\w.]+)\s*(?P<arrow><[.]+>?|\.+>)\s*(?P<rhs>[\w.]+)");
     Dependency[] dependencies = null;
 
     foreach (line; file.byLine)
+        dependencies ~= plantUMLDependencies(line);
+    return dependencies;
+}
+
+Dependency[] plantUMLDependencies(in char[] line)
+{
+    import std.conv : to;
+
+    const ARROW = `(?P<arrow><?\.+(left|right|up|down|le?|ri?|up?|do?|\[.*?\])*\.*>?)`;
+    enum pattern = regex(`(?P<lhs>\w+(.\w+)*)\s*` ~ ARROW ~ `\s*(?P<rhs>\w+(.\w+)*)`);
+    Dependency[] dependencies = null;
+    auto captures = line.matchFirst(pattern);
+
+    if (captures)
     {
-        auto captures = line.matchFirst(pattern);
+        const lhs = captures["lhs"].to!string;
+        const rhs = captures["rhs"].to!string;
 
-        if (captures)
-        {
-            const lhs = captures["lhs"].to!string;
-            const rhs = captures["rhs"].to!string;
-
-            if (captures["arrow"].endsWith(">"))
-                dependencies.add(Dependency(lhs, rhs));
-            if (captures["arrow"].startsWith("<"))
-                dependencies.add(Dependency(rhs, lhs));
-        }
+        if (captures["arrow"].endsWith(">"))
+            dependencies ~= Dependency(lhs, rhs);
+        if (captures["arrow"].startsWith("<"))
+            dependencies ~= Dependency(rhs, lhs);
     }
     return dependencies;
+}
+
+unittest
+{
+    assert(plantUMLDependencies("A.>B") == [Dependency("A", "B")]);
+    assert(plantUMLDependencies("A<.B") == [Dependency("B", "A")]);
+    assert(plantUMLDependencies("A<.>B") == [Dependency("A", "B"), Dependency("B", "A")]);
+    assert(plantUMLDependencies("A.left>B") == [Dependency("A", "B")]);
+    assert(plantUMLDependencies("A.[#red]>B") == [Dependency("A", "B")]);
+    assert(plantUMLDependencies("A.[#red]le>B") == [Dependency("A", "B")]);
 }
 
 void write(in Dependency[] dependencies)
