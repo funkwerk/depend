@@ -2,51 +2,41 @@
 
 import std.algorithm;
 import std.array;
+import std.getopt;
 import std.regex;
 import std.stdio;
 import std.typecons;
-
-const USAGE = `Usage: %s [options] FILE
-Process import dependencies as created by dmd with the --deps switch.
-Options:
-  --dot                 Print the dependency graph in the DOT language
-  -f, --filter REGEX    Filter source files  matching the regular expression
-  -h, --help            Display usage information, then exit
-  -p, --packages        Generalize to package dependencies
-  -t, --target FILE     Check against the PlantUML target dependencies`;
 
 alias Dependency = Tuple!(string, "client", string, "supplier");
 
 int main(string[] args)
 {
-    import std.getopt : getopt;
-
+    GetoptResult result;
     bool dot = false;
-    bool help = false;
     bool packages = false;
     string filter;
     string[] targets = null;
 
     try
     {
-        getopt(args,
-            "dot", &dot,
-            "help|h", &help,
-            "filter|f", &filter,
-            "packages|p", &packages,
-            "target|t", &targets);
+        result = getopt(args,
+            "dot", "Print the dependency graph in the DOT language", &dot,
+            "filter|f", "Filter source files  matching the regular expression", &filter,
+            "packages|p", "Generalize to package dependencies", &packages,
+            "target|t", "Check against the PlantUML target dependencies", &targets);
     }
-    catch (Exception exception)
+    catch (GetOptException exception)
     {
         stderr.writeln("error: ", exception.msg);
         return 1;
     }
-
-    if (help)
+    if (result.helpWanted)
     {
         import std.path : baseName;
 
-        writefln(USAGE, args[0].baseName);
+        writefln("Usage: %s [options] FILE", args[0].baseName);
+        writeln("Process import dependencies as created by dmd with the --deps switch.");
+        defaultGetoptPrinter("Options:", result.options);
         return 0;
     }
 
@@ -212,6 +202,12 @@ string packages(string fullyQualifiedName)
     return names.join('.');
 }
 
+unittest
+{
+    assert(packages("bar.baz.foo") == "bar.baz");
+    assert(packages("foo") == null);
+}
+
 void transitiveClosure(ref Dependency[] dependencies)
 {
     string[] elements = dependencies.elements;
@@ -236,8 +232,8 @@ string[] elements(in Dependency[] dependencies)
     return elements;
 }
 
-void add(Range, Element)(ref Range range, Element element)
+void add(Element)(ref Element[] elements, Element element)
 {
-    if (!range.canFind(element))
-        range ~= element;
+    if (!elements.canFind(element))
+        elements ~= element;
 }
