@@ -1,0 +1,6 @@
+name "depend"
+description "Dependency Tool for D"
+authors "Maro Kröplin"
+copyright "Copyright © 2015, Mario Kröplin"
+license "BSL-1.0"
+targetType "executable"
