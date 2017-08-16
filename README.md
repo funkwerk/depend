@@ -9,7 +9,7 @@ Usage
 Run [dmd](http://dlang.org/dmd-linux.html) with the switch `--deps`
 to extract the actual dependencies. For example:
 
-    dmd -deps=dependencies -c src/depend.d -of/dev/null
+    dmd -deps=dependencies src/depend.d -o-
 
 Use the _depend_ tool together with the [Graphviz](http://www.graphviz.org) programs
 for a visualization of the module dependencies:
