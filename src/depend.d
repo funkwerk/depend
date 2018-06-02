@@ -114,7 +114,7 @@ Dependency[] moduleDependencies(RegEx)(in char[] line, RegEx filter)
     import std.conv : to;
 
     enum pattern = regex(`(?P<client>[\w.]+)\s*\((?P<clientPath>.*)\)`
-        `\s*:[^:]*:\s*(?P<supplier>[\w.]+)\s*\((?P<supplierPath>.*)\)`);
+        ~ `\s*:[^:]*:\s*(?P<supplier>[\w.]+)\s*\((?P<supplierPath>.*)\)`);
     Dependency[] dependencies = null;
     auto captures = line.matchFirst(pattern);
 
