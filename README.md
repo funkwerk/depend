@@ -1,6 +1,8 @@
 Dependency Tool for D
 =====================
 
+[![Build Status](https://travis-ci.org/funkwerk/depend.svg?branch=master)](https://travis-ci.org/funkwerk/depend)
+
 This tool checks actual import dependencies against a UML model of target dependencies.
 
 Usage
