@@ -20,82 +20,16 @@ void main(string[] args)
 
     with (settings)
     {
-        void process(File file)
+        Dependency[] readDependencies(File file)
         {
-            auto pattern = regex(filter);
-            Dependency[] actualDependencies = moduleDependencies(file, pattern);
+            Dependency[] dependencies = moduleDependencies(file, regex(pattern));
 
-            actualDependencies = actualDependencies.sort.uniq.array;
-            if (!targets.empty)
-            {
-                uint count = 0;
-                Dependency[] targetDependencies = null;
-
-                foreach (target; targets)
-                    targetDependencies ~= plantUMLDependencies(File(target));
-
-                if (simplify)
-                    targetDependencies.transitiveClosure;
-                foreach (dependency; actualDependencies)
-                {
-                    const client = dependency.client;
-                    const supplier = dependency.supplier;
-
-                    if (level == Level.modules)
-                        dependency = Dependency(client, supplier);
-                    else
-                    {
-                        dependency = Dependency(client.packages, supplier.packages);
-                        if (dependency.client.empty || dependency.supplier.empty || dependency.client == dependency.supplier)
-                            continue;
-                    }
-                    if (!targetDependencies.canFind(dependency))
-                    {
-                        stderr.writefln("error: unintended dependency %s -> %s", client, supplier);
-                        ++count;
-                    }
-                }
-                if (count > 0)
-                    exit(EXIT_FAILURE);
-            }
-            if (dot || uml)
-            {
-                Dependency[] dependencies_ = null;
-
-                if (level == Level.modules)
-                    dependencies_ = actualDependencies;
-                else
-                {
-                    foreach (dependency; actualDependencies)
-                    {
-                        const client = dependency.client.packages;
-                        const supplier = dependency.supplier.packages;
-
-                        if (!client.empty && !supplier.empty && client != supplier)
-                            dependencies_.add(Dependency(client, supplier));
-                    }
-                }
-                if (simplify)
-                    dependencies_.transitiveReduction;
-                if (dot)
-                {
-                    import graph : write;
-                    import std.stdio : stdout;
-
-                    stdout.lockingTextWriter.write(dependencies_);
-                }
-                if (uml)
-                {
-                    import uml : write;
-                    import std.stdio : stdout;
-
-                    // TODO write to file instead?
-                    stdout.lockingTextWriter.write(dependencies_);
-                }
-            }
+            return dependencies.sort.uniq.array;
         }
 
-        if (dependencies.empty)
+        Dependency[] actualDependencies;
+
+        if (depsFiles.empty)
         {
             import std.process : pipeProcess, Redirect, wait;
 
@@ -106,34 +40,99 @@ void main(string[] args)
             {
                 auto status = wait(pipes.pid);
 
-                exit((status == 0) ? EXIT_SUCCESS : EXIT_FAILURE);
+                if (status != 0)
+                    exit(EXIT_FAILURE);
             }
 
-            process(pipes.stdout);
+            actualDependencies = readDependencies(pipes.stdout);
         }
         else
         {
-            process(File(dependencies));
+            // TODO foreach (depsFile; depsFiles)
+            actualDependencies = readDependencies(File(depsFiles.front));
+        }
+        if (!targetFiles.empty)
+        {
+            import uml : read;
+
+            uint count = 0;
+            Dependency[] targetDependencies = null;
+
+            foreach (targetFile; targetFiles)
+                targetDependencies ~= read(File(targetFile).byLine);
+
+            if (!transitive)
+                targetDependencies.transitiveClosure;
+            foreach (dependency; actualDependencies)
+            {
+                const client = dependency.client;
+                const supplier = dependency.supplier;
+
+                if (modules)
+                    dependency = Dependency(client, supplier);
+                else
+                {
+                    dependency = Dependency(client.packages, supplier.packages);
+                    if (dependency.client.empty || dependency.supplier.empty || dependency.client == dependency.supplier)
+                        continue;
+                }
+                if (!targetDependencies.canFind(dependency))
+                {
+                    stderr.writefln("error: unintended dependency %s -> %s", client, supplier);
+                    ++count;
+                }
+            }
+            if (count > 0)
+                exit(EXIT_FAILURE);
+        }
+        if (dot || targetFiles.empty)
+        {
+            Dependency[] dependencies_ = null;
+
+            if (modules)
+                dependencies_ = actualDependencies;
+            else
+            {
+                foreach (dependency; actualDependencies)
+                {
+                    const client = dependency.client.packages;
+                    const supplier = dependency.supplier.packages;
+
+                    if (!client.empty && !supplier.empty && client != supplier)
+                        dependencies_.add(Dependency(client, supplier));
+                }
+            }
+            if (!transitive)
+                dependencies_.transitiveReduction;
+            if (dot)
+            {
+                import graph : write;
+                import std.stdio : stdout;
+
+                stdout.lockingTextWriter.write(dependencies_);
+            }
+            else
+            {
+                import uml : write;
+                import std.stdio : stdout;
+
+                // TODO write to file instead?
+                stdout.lockingTextWriter.write(dependencies_);
+            }
         }
     }
 }
 
 struct Settings
 {
-    string dependencies;
+    string[] depsFiles = null;
     string compiler = "dmd";
-    string filter;
-    Level level = Level.packages;
-    auto simplify = Yes.simplify;
+    string pattern = null;
+    bool modules = false;
+    bool transitive = false;
     bool dot = false;
-    bool uml = false;
-    string[] targets;
+    string[] targetFiles = null;
     string[] unrecognizedArgs;
-}
-
-enum Level {
-    modules,
-    packages,
 }
 
 Settings read(string[] args)
@@ -155,14 +154,13 @@ do
         {
             result = getopt(args,
                 config.passThrough,
-                "deps", "Read module dependencies from file", &dependencies,
-                "compiler", "Specify the compiler to use (default: dmd)", &compiler,
-                "filter|f", "Filter source files  matching the regular expression", &filter,
-                "level", "Inspect dependencies between modules or packages (default: packages)", &level,
-                "simplify", "Remove transitive dependencies (default: yes)", &simplify,
+                "deps", "Read module dependencies from file", &depsFiles,
+                "compiler|c", "Specify the compiler to use (default: dmd)", &compiler,
+                "filter", "Filter source files  matching the regular expression", &pattern,
+                "modules", "Inspect dependencies between modules instead of packages", &modules,
+                "transitive|t", "Keep transitive dependencies", &transitive,
                 "dot", "Write dependency graph in the DOT language", &dot,
-                "uml", "Write package diagram in the PlantUML language", &uml,
-                "target|t", "Check against the PlantUML target dependencies", &targets,
+                "check", "Check against the PlantUML target dependencies", &targetFiles,
             );
         }
         catch (Exception exception)
@@ -174,7 +172,7 @@ do
         {
             import std.path : baseName;
 
-            writefln("Usage: %s [options] FILE", args.front.baseName);
+            writefln("Usage: %s [options] files", args.front.baseName);
             writeln("Process import dependencies as created by dmd with the --deps switch.");
             defaultGetoptPrinter("Options:", result.options);
             exit(EXIT_SUCCESS);
@@ -187,24 +185,24 @@ do
 /// reads settings
 unittest
 {
-    const settings = read(["depend", "--deps", "dependencies", "--uml"]);
+    const settings = read(["depend", "--deps", "dependencies", "--check", "target"]);
 
     with (settings)
     {
-        assert(dependencies == "dependencies");
-        assert(uml);
+        assert(depsFiles == ["dependencies"]);
+        assert(targetFiles == ["target"]);
     }
 }
 
 /// reads settings with unrecognized arguments
 unittest
 {
-    const settings = read(["depend", "main.d", "--target", "model.uml"]);
+    const settings = read(["depend", "main.d", "--modules"]);
 
     with (settings)
     {
         assert(unrecognizedArgs == ["main.d"]);
-        assert(targets == ["model.uml"]);
+        assert(modules);
     }
 }
 

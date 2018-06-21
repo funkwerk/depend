@@ -1,5 +1,6 @@
 module deps;
 
+import std.range;
 import std.regex;
 import std.stdio;
 import std.typecons;
@@ -8,46 +9,91 @@ alias Dependency = Tuple!(string, "client", string, "supplier");
 
 // TODO use input range instead?
 // TODO filter by source files instead?
-Dependency[] moduleDependencies(RegEx)(File file, RegEx filter)
+Dependency[] moduleDependencies(RegEx)(File file, RegEx pattern)
 {
-    Dependency[] dependencies = null;
+    import std.algorithm : filter, map;
 
-    foreach (line; file.byLine)
+    bool matches(T)(T dependency)
     {
-        dependencies ~= moduleDependencies(line, filter);
-    }
-    return dependencies;
-}
-
-private Dependency[] moduleDependencies(RegEx)(const char[] line, RegEx filter)
-{
-    import std.conv : to;
-
-    enum pattern = regex(`(?P<client>[\w.]+)\s*\((?P<clientPath>.*)\)`
-        ~ `\s*:[^:]*:\s*(?P<supplier>[\w.]+)\s*\((?P<supplierPath>.*)\)`);
-    Dependency[] dependencies = null;
-    auto captures = line.matchFirst(pattern);
-
-    if (captures)
-    {
-        const clientPath = captures["clientPath"];
-        const supplierPath = captures["supplierPath"];
-
-        if (clientPath.matchFirst(filter) && supplierPath.matchFirst(filter))
+        with (dependency)
         {
-            const client = captures["client"].to!string;
-            const supplier = captures["supplier"].to!string;
-
-            dependencies ~= Dependency(client, supplier);
+            return client.path.matchFirst(pattern) && supplier.path.matchFirst(pattern);
         }
     }
-    return dependencies;
+
+    return reader(file.byLine)
+        .filter!(dependency => matches(dependency))
+        .map!(dependency => Dependency(dependency.client.name, dependency.supplier.name))
+        .array;
 }
 
+auto reader(R)(R input)
+{
+    return Reader!R(input);
+}
+
+struct Reader(R)
+if (isInputRange!R)
+{
+    alias Module = Tuple!(string, "name", string, "path");
+    alias Dependency = Tuple!(Module, "client", Module, "supplier");
+
+    private R input;
+
+    public bool empty = false;
+
+    public Dependency front;
+
+    private this(R input)
+    {
+        this.input = input;
+        popFront;
+    }
+
+    public void popFront()
+    {
+        import std.conv : to;
+        import std.regex : matchFirst, regex;
+
+        enum pattern = regex(`^(depsImport\s)?`
+            ~ `(?P<clientName>[\w.]+)\s\((?P<clientPath>.*)\)`
+            ~ `\s:[^:]*:\s`
+            ~ `(?P<supplierName>[\w.]+)\s\((?P<supplierPath>.*)\)`);
+
+        while (!this.input.empty)
+        {
+            auto captures = this.input.front.matchFirst(pattern);
+
+            scope (exit)
+                this.input.popFront;
+
+            if (captures)
+            {
+                with (this.front.client)
+                {
+                    name = captures["clientName"].to!string;
+                    path = captures["clientPath"].to!string;
+                }
+                with (this.front.supplier)
+                {
+                    name = captures["supplierName"].to!string;
+                    path = captures["supplierPath"].to!string;
+                }
+                return;
+            }
+        }
+        this.empty = true;
+    }
+}
+
+/// reads module dependencies
 unittest
 {
-    const line = "depend (src/depend.d) : private : object (/usr/include/dmd/druntime/import/object.di)";
+    import std.algorithm : equal;
 
-    assert(moduleDependencies(line, regex("")) == [Dependency("depend", "object")]);
-    assert(moduleDependencies(line, regex("src")) == []);
+    const line = "depend (src/depend.d) : private : object (/usr/include/dmd/druntime/import/object.di)";
+    const client = tuple("depend", "src/depend.d");
+    const supplier = tuple("object", "/usr/include/dmd/druntime/import/object.di");
+
+    assert(reader(only(line)).equal(only(tuple(client, supplier))));
 }

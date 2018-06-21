@@ -4,47 +4,50 @@ import graph;
 import std.range;
 import std.stdio;
 
-Dependency[] plantUMLDependencies(File file)
+Dependency[] read(R)(R input)
 {
-    Dependency[] dependencies = null;
+    import std.array : appender;
 
-    foreach (line; file.byLine)
-        dependencies ~= plantUMLDependencies(line);
-    return dependencies;
+    auto output = appender!(Dependency[]);
+
+    read(input, output);
+    return output.data;
 }
 
-private Dependency[] plantUMLDependencies(const char[] line)
+private void read(Input, Output)(Input input, auto ref Output output)
 {
     import std.algorithm : endsWith, startsWith;
     import std.conv : to;
     import std.regex : matchFirst, regex;
 
-    const ARROW = `(?P<arrow><?\.+(left|right|up|down|le?|ri?|up?|do?|\[.*?\])*\.*>?)`;
-    enum pattern = regex(`(?P<lhs>\w+(.\w+)*)\s*` ~ ARROW ~ `\s*(?P<rhs>\w+(.\w+)*)`);
-    Dependency[] dependencies = null;
-    auto captures = line.matchFirst(pattern);
+    enum arrow = `(?P<arrow><?\.+(left|right|up|down|le?|ri?|up?|do?|\[.*?\])*\.*>?)`;
+    enum pattern = regex(`(?P<lhs>\w+(.\w+)*)\s*` ~ arrow ~ `\s*(?P<rhs>\w+(.\w+)*)`);
 
-    if (captures)
+    foreach (line; input)
     {
-        const lhs = captures["lhs"].to!string;
-        const rhs = captures["rhs"].to!string;
+        auto captures = line.matchFirst(pattern);
 
-        if (captures["arrow"].endsWith(">"))
-            dependencies ~= Dependency(lhs, rhs);
-        if (captures["arrow"].startsWith("<"))
-            dependencies ~= Dependency(rhs, lhs);
+        if (captures)
+        {
+            const lhs = captures["lhs"].to!string;
+            const rhs = captures["rhs"].to!string;
+
+            if (captures["arrow"].endsWith(">"))
+                output.put(Dependency(lhs, rhs));
+            if (captures["arrow"].startsWith("<"))
+                output.put(Dependency(rhs, lhs));
+        }
     }
-    return dependencies;
 }
 
+/// reads Plant-UML dependencies
 unittest
 {
-    assert(plantUMLDependencies("A.>B") == [Dependency("A", "B")]);
-    assert(plantUMLDependencies("A<.B") == [Dependency("B", "A")]);
-    assert(plantUMLDependencies("A<.>B") == [Dependency("A", "B"), Dependency("B", "A")]);
-    assert(plantUMLDependencies("A.left>B") == [Dependency("A", "B")]);
-    assert(plantUMLDependencies("A.[#red]>B") == [Dependency("A", "B")]);
-    assert(plantUMLDependencies("A.[#red]le>B") == [Dependency("A", "B")]);
+    assert(read(only("a .> b")) == [Dependency("a", "b")]);
+    assert(read(only("a <. b")) == [Dependency("b", "a")]);
+    assert(read(only("a <.> b")) == [Dependency("a", "b"), Dependency("b", "a")]);
+    assert(read(only("a.[#red]>b")) == [Dependency("a", "b")]);
+    assert(read(only("a.[#red]le>b")) == [Dependency("a", "b")]);
 }
 
 void write(Output)(auto ref Output output, const Dependency[] dependencies)
@@ -68,6 +71,7 @@ void write(Output)(auto ref Output output, const Dependency[] dependencies)
     output.put("@enduml\n");
 }
 
+/// writes Plant-UML package diagram
 unittest
 {
     import std.array : appender;
@@ -194,6 +198,7 @@ struct Formatter(Output)
     }
 }
 
+/// writes nested packages
 unittest
 {
     import std.array : appender;
