@@ -7,9 +7,9 @@ import std.typecons;
 
 alias Dependency = Tuple!(string, "client", string, "supplier");
 
-// TODO use input range instead?
-// TODO filter by source files instead?
+// TODO avoid redundancy
 Dependency[] moduleDependencies(RegEx)(File file, RegEx pattern)
+if (isRegexFor!(RegEx, string))
 {
     import std.algorithm : filter, map;
 
@@ -18,6 +18,24 @@ Dependency[] moduleDependencies(RegEx)(File file, RegEx pattern)
         with (dependency)
         {
             return client.path.matchFirst(pattern) && supplier.path.matchFirst(pattern);
+        }
+    }
+
+    return reader(file.byLine)
+        .filter!(dependency => matches(dependency))
+        .map!(dependency => Dependency(dependency.client.name, dependency.supplier.name))
+        .array;
+}
+
+Dependency[] moduleDependencies(File file, const string[] fileNames)
+{
+    import std.algorithm : canFind, filter, map;
+
+    bool matches(T)(T dependency)
+    {
+        with (dependency)
+        {
+            return fileNames.canFind(client.path) && fileNames.canFind(supplier.path);
         }
     }
 

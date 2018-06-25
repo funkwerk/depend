@@ -22,8 +22,12 @@ void main(string[] args)
     {
         Dependency[] readDependencies(File file)
         {
-            Dependency[] dependencies = moduleDependencies(file, regex(pattern));
+            Dependency[] dependencies;
 
+            if (pattern.empty)
+                dependencies = moduleDependencies(file, unrecognizedArgs);
+            else
+                dependencies = moduleDependencies(file, regex(pattern));
             return dependencies.sort.uniq.array;
         }
 
