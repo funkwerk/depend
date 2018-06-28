@@ -4,7 +4,6 @@ import std.algorithm;
 import std.range;
 import std.typecons;
 
-// TODO how to use graph terminology instead?
 alias Dependency = Tuple!(string, "client", string, "supplier");
 
 void write(Output)(auto ref Output output, const Dependency[] dependencies)
@@ -60,7 +59,7 @@ void transitiveClosure(ref Dependency[] dependencies)
                         dependencies.add(Dependency(client, supplier));
 }
 
-void transitiveReduction(ref Dependency[] dependencies)
+void transitiveReduction(Output)(auto ref Output output, ref Dependency[] dependencies)
 {
     bool[string] mark = null;
     Dependency[] cyclicDependencies = null;
@@ -93,15 +92,52 @@ void transitiveReduction(ref Dependency[] dependencies)
 
     foreach (element; dependencies.elements)
         traverse(element);
-    // TODO don't write warnings in transitive-reduction function
+
     if (!cyclicDependencies.empty)
     {
-        import std.stdio : stderr;
+        import std.format : formattedWrite;
 
-        stderr.writeln("warning: cyclic dependencies");
+        output.put("warning: cyclic dependencies\n");
         foreach (dependency; cyclicDependencies.sort)
-            stderr.writeln(dependency.client, " -> ", dependency.supplier);
+            output.formattedWrite!"%s -> %s\n"(dependency.client, dependency.supplier);
     }
+}
+
+// transitive reduction
+unittest
+{
+    import std.array : appender;
+
+    auto dependencies = [Dependency("a", "b"), Dependency("b", "c"), Dependency("a", "c")];
+    auto output = appender!string;
+
+    transitiveReduction(output, dependencies);
+
+    assert(dependencies == [Dependency("a", "b"), Dependency("b", "c")]);
+    assert(output.data.empty);
+}
+
+// transitive reduction with cyclic dependencies
+unittest
+{
+    import std.array : appender;
+    import std.string : outdent, stripLeft;
+
+    auto dependencies = [Dependency("a", "b"), Dependency("b", "c"), Dependency("c", "a")];
+    auto output = appender!string;
+
+    transitiveReduction(output, dependencies);
+
+    assert(dependencies == [Dependency("a", "b"), Dependency("b", "c"), Dependency("c", "a")]);
+
+    const expected = `
+        warning: cyclic dependencies
+        a -> b
+        b -> c
+        c -> a
+        `;
+
+    assert(output.data == outdent(expected).stripLeft);
 }
 
 string[] elements(in Dependency[] dependencies)

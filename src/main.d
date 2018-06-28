@@ -25,10 +25,32 @@ void main(string[] args)
             Dependency[] dependencies;
 
             if (pattern.empty)
-                dependencies = moduleDependencies(file, unrecognizedArgs);
+            {
+                bool matches(T)(T dependency)
+                {
+                    with (dependency)
+                    {
+                        return unrecognizedArgs.canFind(client.path)
+                            && unrecognizedArgs.canFind(supplier.path);
+                    }
+                }
+
+                dependencies = moduleDependencies!(dependency => matches(dependency))(file);
+            }
             else
-                dependencies = moduleDependencies(file, regex(pattern));
-            return dependencies.sort.uniq.array;
+            {
+                bool matches(T)(T dependency)
+                {
+                    with (dependency)
+                    {
+                        return client.path.matchFirst(pattern)
+                            && supplier.path.matchFirst(pattern);
+                    }
+                }
+
+                dependencies = moduleDependencies!(dependency => matches(dependency))(file);
+            }
+            return dependencies.array;
         }
 
         Dependency[] actualDependencies;
@@ -52,9 +74,10 @@ void main(string[] args)
         }
         else
         {
-            // TODO foreach (depsFile; depsFiles)
-            actualDependencies = readDependencies(File(depsFiles.front));
+            foreach (depsFile; depsFiles)
+                actualDependencies ~= readDependencies(File(depsFile));
         }
+        actualDependencies = actualDependencies.sort.uniq.array;
         if (!targetFiles.empty)
         {
             import uml : read;
@@ -72,7 +95,7 @@ void main(string[] args)
                 const client = dependency.client;
                 const supplier = dependency.supplier;
 
-                if (modules)
+                if (detail)
                     dependency = Dependency(client, supplier);
                 else
                 {
@@ -93,7 +116,7 @@ void main(string[] args)
         {
             Dependency[] dependencies_ = null;
 
-            if (modules)
+            if (detail)
                 dependencies_ = actualDependencies;
             else
             {
@@ -107,7 +130,7 @@ void main(string[] args)
                 }
             }
             if (!transitive)
-                dependencies_.transitiveReduction;
+               transitiveReduction(stderr.lockingTextWriter, dependencies_);
             if (dot)
             {
                 import graph : write;
@@ -120,7 +143,6 @@ void main(string[] args)
                 import uml : write;
                 import std.stdio : stdout;
 
-                // TODO write to file instead?
                 stdout.lockingTextWriter.write(dependencies_);
             }
         }
@@ -132,7 +154,7 @@ struct Settings
     string[] depsFiles = null;
     string compiler = "dmd";
     string pattern = null;
-    bool modules = false;
+    bool detail = false;
     bool transitive = false;
     bool dot = false;
     string[] targetFiles = null;
@@ -161,7 +183,7 @@ do
                 "deps", "Read module dependencies from file", &depsFiles,
                 "compiler|c", "Specify the compiler to use (default: dmd)", &compiler,
                 "filter", "Filter source files  matching the regular expression", &pattern,
-                "modules", "Inspect dependencies between modules instead of packages", &modules,
+                "detail", "Inspect dependencies between modules instead of packages", &detail,
                 "transitive|t", "Keep transitive dependencies", &transitive,
                 "dot", "Write dependency graph in the DOT language", &dot,
                 "check", "Check against the PlantUML target dependencies", &targetFiles,
@@ -201,12 +223,12 @@ unittest
 /// reads settings with unrecognized arguments
 unittest
 {
-    const settings = read(["depend", "main.d", "--modules"]);
+    const settings = read(["depend", "main.d", "--detail"]);
 
     with (settings)
     {
         assert(unrecognizedArgs == ["main.d"]);
-        assert(modules);
+        assert(detail);
     }
 }
 
