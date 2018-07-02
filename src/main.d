@@ -22,8 +22,6 @@ void main(string[] args)
     {
         Dependency[] readDependencies(File file)
         {
-            Dependency[] dependencies;
-
             if (pattern.empty)
             {
                 bool matches(T)(T dependency)
@@ -35,7 +33,7 @@ void main(string[] args)
                     }
                 }
 
-                dependencies = moduleDependencies!(dependency => matches(dependency))(file);
+                return moduleDependencies!(dependency => matches(dependency))(file).array;
             }
             else
             {
@@ -48,9 +46,8 @@ void main(string[] args)
                     }
                 }
 
-                dependencies = moduleDependencies!(dependency => matches(dependency))(file);
+                return moduleDependencies!(dependency => matches(dependency))(file).array;
             }
-            return dependencies.array;
         }
 
         Dependency[] actualDependencies;
@@ -73,10 +70,9 @@ void main(string[] args)
             actualDependencies = readDependencies(pipes.stdout);
         }
         else
-        {
-            foreach (depsFile; depsFiles)
-                actualDependencies ~= readDependencies(File(depsFile));
-        }
+            actualDependencies = depsFiles
+                .map!(depsFile => readDependencies(File(depsFile)))
+                .join;
         actualDependencies = actualDependencies.sort.uniq.array;
         if (!targetFiles.empty)
         {
@@ -130,7 +126,16 @@ void main(string[] args)
                 }
             }
             if (!transitive)
-               transitiveReduction(stderr.lockingTextWriter, dependencies_);
+            {
+                auto cyclicDependencies = transitiveReduction(dependencies_);
+
+                if (!cyclicDependencies.empty)
+                {
+                    stderr.writeln("warning: cyclic dependencies");
+                    foreach (dependency; cyclicDependencies.sort)
+                        stderr.writefln!"%s -> %s"(dependency.client, dependency.supplier);
+                }
+            }
             if (dot)
             {
                 import graph : write;

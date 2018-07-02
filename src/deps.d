@@ -7,14 +7,13 @@ import std.typecons;
 
 alias Dependency = Tuple!(string, "client", string, "supplier");
 
-Dependency[] moduleDependencies(alias predicate)(File file)
+auto moduleDependencies(alias predicate)(File file)
 {
     import std.algorithm : filter, map;
 
     return reader(file.byLine)
         .filter!predicate
-        .map!(dependency => Dependency(dependency.client.name, dependency.supplier.name))
-        .array;
+        .map!(dependency => Dependency(dependency.client.name, dependency.supplier.name));
 }
 
 auto reader(R)(R input)
