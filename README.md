@@ -70,4 +70,4 @@ Alternatively, run `dmd` up front and pass the extracted dependencies explicitly
 [`dub`]: https://code.dlang.org/
 [vibe.d]: https://github.com/vibe-d/vibe.d
 [PlantUML]: https://plantuml.com/
-[PlantUML Server]: https://www.plantuml.com/plantuml
+[PlantUML Server]: http://www.plantuml.com/plantuml
