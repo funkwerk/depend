@@ -42,7 +42,7 @@ The output is a package diagram in the [PlantUML][] language:
     uml ..> graph
     @enduml
 
-Copy and paste the output to the [PlantUML server][] for visualization:
+Copy and paste the output to the [PlantUML Server][] for visualization:
 
 ![package diagram](https://raw.githubusercontent.com/wiki/funkwerk/depend/images/self.png)
 
@@ -70,4 +70,4 @@ Alternatively, run `dmd` up front and pass the extracted dependencies explicitly
 [`dub`]: https://code.dlang.org/
 [vibe.d]: https://github.com/vibe-d/vibe.d
 [PlantUML]: https://plantuml.com/
-[PlantUML server]: http://www.plantuml.com/plantuml
+[PlantUML Server]: https://www.plantuml.com/plantuml
