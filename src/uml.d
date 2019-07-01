@@ -4,7 +4,6 @@ import graph;
 import std.algorithm;
 import std.range;
 import std.stdio;
-import std.typecons : Flag, No, Yes;
 
 Dependency[] read(R)(R input)
 {
@@ -89,7 +88,7 @@ void write(Output)(auto ref Output output, const Dependency[] dependencies)
         .map!(a => a.split('.'))
         .each!(path => tree.add(path));
 
-    void recurse(Node node, size_t indent)
+    bool recurse(Node node, size_t indent)
     {
         import std.format : formattedWrite;
 
@@ -98,22 +97,26 @@ void write(Output)(auto ref Output output, const Dependency[] dependencies)
             output.formattedWrite!"%s"("    ".repeat.take(indent).join);
         }
 
-        bool newlineAdded = false;
+        bool wroteNewline = false;
 
-        void writeNewline(Flag!"force" force = No.force)
+        void writeNewline()
         {
-            if (!newlineAdded || force)
-            {
-                output.put("\n");
-                newlineAdded = true;
-            }
+            output.put("\n");
+            wroteNewline = true;
         }
+
+        bool childWroteNewline = false;
 
         node.children.keys.sort
             .map!(key => node.children[key])
             .each!((Node node)
             {
-                writeNewline;
+                if (!childWroteNewline)
+                {
+                    writeNewline;
+                    childWroteNewline = true;
+                }
+
                 writeIndent;
                 if (node.path.length == 1)
                 {
@@ -124,10 +127,17 @@ void write(Output)(auto ref Output output, const Dependency[] dependencies)
                     output.formattedWrite!"package %s as %s {"(node.path.back, node.path.join('.'));
                 }
 
-                recurse(node, indent + 1);
+                bool childWroteNewline = recurse(node, indent + 1);
+
+                if (childWroteNewline)
+                {
+                    writeIndent;
+                }
 
                 output.put("}\n");
             });
+
+        bool dependencyWroteNewline = false;
 
         foreach (i, dependency; dependencies)
         {
@@ -135,12 +145,19 @@ void write(Output)(auto ref Output output, const Dependency[] dependencies)
                 dependency.client.split('.').startsWith(node.path) &&
                 dependency.supplier.split('.').startsWith(node.path))
             {
-                writeNewline(Yes.force);
+                if (!dependencyWroteNewline)
+                {
+                    writeNewline;
+                    dependencyWroteNewline = true;
+                }
+
                 writeIndent;
                 writeDependency(output, dependency);
                 written[i] = true;
             }
         }
+
+        return wroteNewline;
     }
 
     output.put("@startuml\n");
