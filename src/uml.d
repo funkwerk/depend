@@ -142,8 +142,8 @@ void write(Output)(auto ref Output output, const Dependency[] dependencies)
         foreach (i, dependency; dependencies)
         {
             if (!written[i] &&
-                dependency.client.split('.').startsWith(node.path) &&
-                dependency.supplier.split('.').startsWith(node.path))
+                dependency.client.split('.').startsWithAndLonger(node.path) &&
+                dependency.supplier.split('.').startsWithAndLonger(node.path))
             {
                 if (!dependencyWroteNewline)
                 {
@@ -204,7 +204,7 @@ unittest
     import std.string : outdent, stripLeft;
 
     auto output = appender!string;
-    const dependencies = [Dependency("a.b", "a.c")];
+    const dependencies = [Dependency("a", "a.b"), Dependency("a.b", "a.c")];
 
     output.write(dependencies);
 
@@ -218,11 +218,16 @@ unittest
             a.b ..> a.c
         }
 
+        a ..> a.b
+
         @enduml
         `;
 
     output.data.should.equal(outdent(expected).stripLeft);
 }
+
+private alias startsWithAndLonger = (haystack, needle) =>
+    haystack.startsWith(needle) && !haystack.drop(needle.count).empty;
 
 private void writeDependency(Output)(auto ref Output output, const Dependency dependency)
 {
