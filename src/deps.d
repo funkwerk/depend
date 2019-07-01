@@ -78,11 +78,11 @@ if (isInputRange!R)
 /// reads module dependencies
 unittest
 {
-    import std.algorithm : equal;
+    import dshould : equal, should;
 
     const line = "depend (src/depend.d) : private : object (/usr/include/dmd/druntime/import/object.di)";
     const client = tuple("depend", "src/depend.d");
     const supplier = tuple("object", "/usr/include/dmd/druntime/import/object.di");
 
-    assert(reader(only(line)).equal(only(tuple(client, supplier))));
+    reader(only(line)).should.equal(only(tuple(client, supplier)));
 }

@@ -27,6 +27,7 @@ void write(Output)(auto ref Output output, const Dependency[] dependencies)
 
 unittest
 {
+    import dshould : equal, should;
     import std.array : appender;
     import std.string : outdent, stripLeft;
 
@@ -44,7 +45,7 @@ unittest
         }
         `;
 
-    assert(output.data == outdent(expected).stripLeft);
+    output.data.should.equal(outdent(expected).stripLeft);
 }
 
 void transitiveClosure(ref Dependency[] dependencies)
@@ -99,21 +100,25 @@ Dependency[] transitiveReduction(ref Dependency[] dependencies)
 // transitive reduction
 unittest
 {
+    import dshould : be, equal, should;
+
     auto dependencies = [Dependency("a", "b"), Dependency("b", "c"), Dependency("a", "c")];
     auto cyclicDependencies = transitiveReduction(dependencies);
 
-    assert(dependencies == [Dependency("a", "b"), Dependency("b", "c")]);
-    assert(cyclicDependencies.empty);
+    dependencies.should.equal([Dependency("a", "b"), Dependency("b", "c")]);
+    cyclicDependencies.should.be.empty;
 }
 
 // transitive reduction with cyclic dependencies
 unittest
 {
+    import dshould : equal, should;
+
     auto dependencies = [Dependency("a", "b"), Dependency("b", "c"), Dependency("c", "a")];
     auto cyclicDependencies = transitiveReduction(dependencies);
 
-    assert(dependencies == [Dependency("a", "b"), Dependency("b", "c"), Dependency("c", "a")]);
-    assert(equal(cyclicDependencies.sort, dependencies));
+    dependencies.should.equal([Dependency("a", "b"), Dependency("b", "c"), Dependency("c", "a")]);
+    cyclicDependencies.sort.should.equal(dependencies);
 }
 
 string[] elements(in Dependency[] dependencies)
