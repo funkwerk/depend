@@ -216,24 +216,28 @@ do
 /// reads settings
 unittest
 {
+    import dshould : equal, should;
+
     const settings = read(["depend", "--deps", "dependencies", "--check", "target"]);
 
     with (settings)
     {
-        assert(depsFiles == ["dependencies"]);
-        assert(targetFiles == ["target"]);
+        depsFiles.should.equal(["dependencies"]);
+        targetFiles.should.equal(["target"]);
     }
 }
 
 /// reads settings with unrecognized arguments
 unittest
 {
+    import dshould : be, equal, should;
+
     const settings = read(["depend", "main.d", "--detail"]);
 
     with (settings)
     {
-        assert(unrecognizedArgs == ["main.d"]);
-        assert(detail);
+        unrecognizedArgs.should.equal(["main.d"]);
+        detail.should.be(true);
     }
 }
 
@@ -248,6 +252,8 @@ private string packages(string fullyQualifiedName)
 
 unittest
 {
-    assert(packages("bar.baz.foo") == "bar.baz");
-    assert(packages("foo") == null);
+    import dshould : be, empty, equal;
+
+    packages("bar.baz.foo").should.equal("bar.baz");
+    packages("foo").should.be.empty;
 }

@@ -43,11 +43,13 @@ private void read(Input, Output)(Input input, auto ref Output output)
 /// reads Plant-UML dependencies
 unittest
 {
-    assert(read(only("a .> b")) == [Dependency("a", "b")]);
-    assert(read(only("a <. b")) == [Dependency("b", "a")]);
-    assert(read(only("a <.> b")) == [Dependency("a", "b"), Dependency("b", "a")]);
-    assert(read(only("a.[#red]>b")) == [Dependency("a", "b")]);
-    assert(read(only("a.[#red]le>b")) == [Dependency("a", "b")]);
+    import dshould : equal, should;
+
+    read(only("a .> b")).should.equal([Dependency("a", "b")]);
+    read(only("a <. b")).should.equal([Dependency("b", "a")]);
+    read(only("a <.> b")).should.equal([Dependency("a", "b"), Dependency("b", "a")]);
+    read(only("a.[#red]>b")).should.equal([Dependency("a", "b")]);
+    read(only("a.[#red]le>b")).should.equal([Dependency("a", "b")]);
 }
 
 void write(Output)(auto ref Output output, const Dependency[] dependencies)
@@ -74,6 +76,7 @@ void write(Output)(auto ref Output output, const Dependency[] dependencies)
 /// writes Plant-UML package diagram
 unittest
 {
+    import dshould : equal, should;
     import std.array : appender;
     import std.string : outdent, stripLeft;
 
@@ -91,7 +94,7 @@ unittest
         @enduml
         `;
 
-    assert(output.data == outdent(expected).stripLeft, output.data);
+    output.data.should.equal(outdent(expected).stripLeft);
 }
 
 auto writer(Formatter)(Formatter formatter)
@@ -201,6 +204,7 @@ struct Formatter(Output)
 /// writes nested packages
 unittest
 {
+    import dshould : equal, should;
     import std.array : appender;
     import std.string : outdent, stripLeft;
 
@@ -222,5 +226,5 @@ unittest
         }
         `;
 
-    assert(output.data == outdent(expected).stripLeft);
+    output.data.should.equal(outdent(expected).stripLeft);
 }
