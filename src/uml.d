@@ -1,8 +1,10 @@
 module uml;
 
 import graph;
+import std.algorithm;
 import std.range;
 import std.stdio;
+import std.typecons : Flag, No, Yes;
 
 Dependency[] read(R)(R input)
 {
@@ -56,20 +58,98 @@ void write(Output)(auto ref Output output, const Dependency[] dependencies)
 {
     import std.algorithm : sort;
 
-    auto writer = writer(formatter(output));
+    bool[] written = new bool[dependencies.length];
+
+    struct Node
+    {
+        string[] path;
+
+        Node[string] children;
+
+        void add(string[] path, size_t offset = 0)
+        {
+            if (offset == path.length)
+            {
+                return;
+            }
+
+            if (path[offset] !in children)
+            {
+                children[path[offset]] = Node(path[0 .. offset + 1], null);
+            }
+
+            children[path[offset]].add(path, offset + 1);
+        }
+    }
+
+    Node tree;
+
+    dependencies.elements
+        .sort
+        .map!(a => a.split('.'))
+        .each!(path => tree.add(path));
+
+    void recurse(Node node, size_t indent)
+    {
+        import std.format : formattedWrite;
+
+        void writeIndent()
+        {
+            output.formattedWrite!"%s"("    ".repeat.take(indent).join);
+        }
+
+        bool newlineAdded = false;
+
+        void writeNewline(Flag!"force" force = No.force)
+        {
+            if (!newlineAdded || force)
+            {
+                output.put("\n");
+                newlineAdded = true;
+            }
+        }
+
+        node.children.keys.sort
+            .map!(key => node.children[key])
+            .each!((Node node)
+            {
+                writeNewline;
+                writeIndent;
+                if (node.path.length == 1)
+                {
+                    output.formattedWrite!"package %s {"(node.path.join('.'));
+                }
+                else
+                {
+                    output.formattedWrite!"package %s as %s {"(node.path.back, node.path.join('.'));
+                }
+
+                recurse(node, indent + 1);
+
+                output.put("}\n");
+            });
+
+        foreach (i, dependency; dependencies)
+        {
+            if (!written[i] &&
+                dependency.client.split('.').startsWith(node.path) &&
+                dependency.supplier.split('.').startsWith(node.path))
+            {
+                writeNewline(Yes.force);
+                writeIndent;
+                writeDependency(output, dependency);
+                written[i] = true;
+            }
+        }
+    }
 
     output.put("@startuml\n");
-    foreach (element; dependencies.elements.sort)
-        writer.put(element.split('.'));
-    writer.close;
-    output.put('\n');
-    foreach (dependency; dependencies)
-    {
-        output.put(dependency.client);
-        output.put(" ..> ");
-        output.put(dependency.supplier);
-        output.put('\n');
-    }
+
+    assert(tree.path.empty);
+
+    recurse(tree, 0);
+
+    output.put("\n");
     output.put("@enduml\n");
 }
 
@@ -87,121 +167,19 @@ unittest
 
     const expected = `
         @startuml
+
         package a {}
         package b {}
 
         a ..> b
+
         @enduml
         `;
 
     output.data.should.equal(outdent(expected).stripLeft);
 }
 
-auto writer(Formatter)(Formatter formatter)
-{
-    return Writer!Formatter(formatter);
-}
-
-struct Writer(Formatter)
-{
-    Formatter formatter;
-
-    string[] prev = null;
-
-    void put(string[] path)
-    in
-    {
-        assert(!path.empty);
-    }
-    do
-    {
-        import std.algorithm : commonPrefix;
-
-        auto prefix = commonPrefix(this.prev, path);
-
-        close(this.prev.length - prefix.length);
-        this.prev = path.dup;
-        path.popFrontN(prefix.length);
-        put(prefix, path);
-    }
-
-    void put(string[] prefix, string[] path)
-    in
-    {
-        assert(!path.empty);
-    }
-    do
-    {
-        import std.format : format;
-        import std.string : join;
-
-        const name = path.front;
-
-        prefix ~= name;
-        path.popFront;
-        if (prefix.length == 1)
-            this.formatter.open(format!"package %s {"(name));
-        else
-            this.formatter.open(format!"package %s as %s {"(name, prefix.join('.')));
-        if (!path.empty)
-            put(prefix, path);
-    }
-
-    void close()
-    {
-        close(this.prev.length);
-        this.prev = null;
-    }
-
-    void close(size_t n)
-    {
-        foreach (_; 0 .. n)
-            this.formatter.close("}");
-    }
-
-}
-
-auto formatter(Output)(auto ref Output output)
-{
-    return Formatter!Output(output);
-}
-
-struct Formatter(Output)
-{
-    Output output;
-
-    size_t indent = 0;
-
-    bool pending = false;
-
-    void open(string s)
-    {
-        if (this.pending)
-            this.output.put("\n");
-        indentation;
-        this.output.put(s);
-        ++this.indent;
-        this.pending = true;
-    }
-
-    void close(string s)
-    {
-        --this.indent;
-        if (!this.pending)
-            indentation;
-        this.output.put(s);
-        this.output.put("\n");
-        this.pending = false;
-    }
-
-    void indentation()
-    {
-        foreach (_; 0 .. this.indent)
-            this.output.put("    ");
-    }
-}
-
-/// writes nested packages
+/// Puts purely internal dependencies inside the package
 unittest
 {
     import dshould : equal, should;
@@ -209,22 +187,30 @@ unittest
     import std.string : outdent, stripLeft;
 
     auto output = appender!string;
-    auto writer = writer(formatter(output));
+    const dependencies = [Dependency("a.b", "a.c")];
 
-    writer.put(["a", "b", "x"]);
-    writer.put(["a", "b", "y"]);
-    writer.put(["a", "z"]);
-    writer.close;
+    output.write(dependencies);
 
     const expected = `
+        @startuml
+
         package a {
-            package b as a.b {
-                package x as a.b.x {}
-                package y as a.b.y {}
-            }
-            package z as a.z {}
+            package b as a.b {}
+            package c as a.c {}
+
+            a.b ..> a.c
         }
+
+        @enduml
         `;
 
     output.data.should.equal(outdent(expected).stripLeft);
+}
+
+private void writeDependency(Output)(auto ref Output output, const Dependency dependency)
+{
+    output.put(dependency.client);
+    output.put(" ..> ");
+    output.put(dependency.supplier);
+    output.put("\n");
 }
