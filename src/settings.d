@@ -91,7 +91,7 @@ unittest
     }
 }
 
-private string packages(string fullyQualifiedName)
+string packages(string fullyQualifiedName)
 {
     import std.range : dropBackOne;
 

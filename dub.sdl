@@ -4,11 +4,15 @@ authors "Mario Kröplin"
 copyright "Copyright © 2018, Mario Kröplin"
 license "BSL-1.0"
 targetType "executable"
+buildRequirements "disallowDeprecations"
 
+configuration "debug" {
+    targetName "depend"
+    targetPath "."
+}
 configuration "unittest" {
     dependency "dshould" version="~>0"
     dependency "unit-threaded" version="*"
-    buildRequirements "disallowDeprecations"
     mainSourceFile "build/ut.d"
     excludedSourceFiles "src/main.d"
     targetType "executable"

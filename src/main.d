@@ -3,18 +3,20 @@
 //    (See accompanying file LICENSE_1_0.txt or copy at
 //          https://www.boost.org/LICENSE_1_0.txt)
 
+import core.stdc.stdlib;
 import deps;
 import graph;
-import settings;
+import settings : packages, readSettings = read;
 import std.algorithm;
 import std.array;
 import std.regex;
+import std.stdio;
 import std.typecons;
 import uml;
 
 void main(string[] args)
 {
-    const settings = read(args);
+    const settings = readSettings(args);
 
     with (settings)
     {
