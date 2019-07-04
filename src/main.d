@@ -252,7 +252,7 @@ private string packages(string fullyQualifiedName)
 
 unittest
 {
-    import dshould : be, empty, equal;
+    import dshould : be, equal, should;
 
     packages("bar.baz.foo").should.equal("bar.baz");
     packages("foo").should.be.empty;

@@ -4,4 +4,12 @@ authors "Maro Kröplin"
 copyright "Copyright © 2018, Mario Kröplin"
 license "BSL-1.0"
 targetType "executable"
-dependency "dshould" version="~>0"
+
+configuration "unittest" {
+    dependency "dshould" version="~>0"
+    dependency "unit-threaded" version="*"
+    mainSourceFile "bin/ut.d"
+    excludedSourceFiles "src/main.d"
+    targetType "executable"
+    preBuildCommands "dub run unit-threaded -c gen_ut_main -- -f bin/ut.d"
+}
