@@ -8,8 +8,8 @@ targetType "executable"
 configuration "unittest" {
     dependency "dshould" version="~>0"
     dependency "unit-threaded" version="*"
-    mainSourceFile "bin/ut.d"
+    mainSourceFile "build/ut.d"
     excludedSourceFiles "src/main.d"
     targetType "executable"
-    preBuildCommands "dub run unit-threaded -c gen_ut_main -- -f bin/ut.d"
+    preBuildCommands "dub run unit-threaded -c gen_ut_main -- -f build/ut.d"
 }
