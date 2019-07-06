@@ -63,7 +63,7 @@ do
     return settings;
 }
 
-/// reads settings
+@("read settings")
 unittest
 {
     import dshould : equal, should;
@@ -77,7 +77,7 @@ unittest
     }
 }
 
-/// reads settings with unrecognized arguments
+@("read settings with unrecognized arguments")
 unittest
 {
     import dshould : be, equal, should;
@@ -100,6 +100,7 @@ string packages(string fullyQualifiedName)
         .join('.');
 }
 
+@("split packages from a fully-qualified module name")
 unittest
 {
     import dshould : be, equal, should;

@@ -25,6 +25,7 @@ void write(Output)(auto ref Output output, const Dependency[] dependencies)
     output.put("}\n");
 }
 
+@("write dependency graph in the DOT language")
 unittest
 {
     import dshould : equal, should;
@@ -97,7 +98,7 @@ Dependency[] transitiveReduction(ref Dependency[] dependencies)
     return cyclicDependencies;
 }
 
-// transitive reduction
+@("apply transitive reduction")
 unittest
 {
     import dshould : be, equal, should;
@@ -109,7 +110,7 @@ unittest
     cyclicDependencies.should.be.empty;
 }
 
-// transitive reduction with cyclic dependencies
+@("apply transitive reduction to cyclic dependencies")
 unittest
 {
     import dshould : equal, should;
