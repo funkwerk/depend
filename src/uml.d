@@ -41,7 +41,7 @@ private void read(Input, Output)(Input input, auto ref Output output)
     }
 }
 
-/// reads Plant-UML dependencies
+@("read Plant-UML dependencies")
 unittest
 {
     import dshould : equal, should;
@@ -170,7 +170,7 @@ void write(Output)(auto ref Output output, const Dependency[] dependencies)
     output.put("@enduml\n");
 }
 
-/// writes Plant-UML package diagram
+@("write Plant-UML package diagram")
 unittest
 {
     import dshould : equal, should;
@@ -196,7 +196,7 @@ unittest
     output.data.should.equal(outdent(expected).stripLeft);
 }
 
-/// Puts purely internal dependencies inside the package
+@("place internal dependencies inside the package")
 unittest
 {
     import dshould : equal, should;

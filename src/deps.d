@@ -75,7 +75,7 @@ if (isInputRange!R)
     }
 }
 
-/// reads module dependencies
+@("read module dependencies")
 unittest
 {
     import dshould : equal, should;
