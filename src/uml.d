@@ -4,6 +4,7 @@ import graph;
 import std.algorithm;
 import std.range;
 import std.stdio;
+version (unittest) import dshould;
 
 Dependency[] read(R)(R input)
 {
@@ -44,8 +45,6 @@ private void read(Input, Output)(Input input, auto ref Output output)
 @("read Plant-UML dependencies")
 unittest
 {
-    import dshould : equal, should;
-
     read(only("a .> b")).should.equal([Dependency("a", "b")]);
     read(only("a <. b")).should.equal([Dependency("b", "a")]);
     read(only("a <.> b")).should.equal([Dependency("a", "b"), Dependency("b", "a")]);
@@ -173,7 +172,6 @@ void write(Output)(auto ref Output output, const Dependency[] dependencies)
 @("write Plant-UML package diagram")
 unittest
 {
-    import dshould : equal, should;
     import std.array : appender;
     import std.string : outdent, stripLeft;
 
@@ -199,7 +197,6 @@ unittest
 @("place internal dependencies inside the package")
 unittest
 {
-    import dshould : equal, should;
     import std.array : appender;
     import std.string : outdent, stripLeft;
 

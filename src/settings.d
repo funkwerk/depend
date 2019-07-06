@@ -3,6 +3,7 @@ module settings;
 import core.stdc.stdlib;
 import std.range;
 import std.stdio;
+version (unittest) import dshould;
 
 struct Settings
 {
@@ -66,8 +67,6 @@ do
 @("read settings")
 unittest
 {
-    import dshould : equal, should;
-
     const settings = read(["depend", "--deps", "dependencies", "--check", "target"]);
 
     with (settings)
@@ -80,8 +79,6 @@ unittest
 @("read settings with unrecognized arguments")
 unittest
 {
-    import dshould : be, equal, should;
-
     const settings = read(["depend", "main.d", "--detail"]);
 
     with (settings)
@@ -103,8 +100,6 @@ string packages(string fullyQualifiedName)
 @("split packages from a fully-qualified module name")
 unittest
 {
-    import dshould : be, equal, should;
-
     packages("bar.baz.foo").should.equal("bar.baz");
     packages("foo").should.be.empty;
 }

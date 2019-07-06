@@ -3,6 +3,7 @@ module graph;
 import std.algorithm;
 import std.range;
 import std.typecons;
+version (unittest) import dshould;
 
 alias Dependency = Tuple!(string, "client", string, "supplier");
 
@@ -28,7 +29,6 @@ void write(Output)(auto ref Output output, const Dependency[] dependencies)
 @("write dependency graph in the DOT language")
 unittest
 {
-    import dshould : equal, should;
     import std.array : appender;
     import std.string : outdent, stripLeft;
 
@@ -101,8 +101,6 @@ Dependency[] transitiveReduction(ref Dependency[] dependencies)
 @("apply transitive reduction")
 unittest
 {
-    import dshould : be, equal, should;
-
     auto dependencies = [Dependency("a", "b"), Dependency("b", "c"), Dependency("a", "c")];
     auto cyclicDependencies = transitiveReduction(dependencies);
 
@@ -113,8 +111,6 @@ unittest
 @("apply transitive reduction to cyclic dependencies")
 unittest
 {
-    import dshould : equal, should;
-
     auto dependencies = [Dependency("a", "b"), Dependency("b", "c"), Dependency("c", "a")];
     auto cyclicDependencies = transitiveReduction(dependencies);
 

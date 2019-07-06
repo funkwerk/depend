@@ -4,6 +4,7 @@ import std.range;
 import std.regex;
 import std.stdio;
 import std.typecons;
+version (unittest) import dshould;
 
 alias Dependency = Tuple!(string, "client", string, "supplier");
 
@@ -78,8 +79,6 @@ if (isInputRange!R)
 @("read module dependencies")
 unittest
 {
-    import dshould : equal, should;
-
     const line = "depend (src/depend.d) : private : object (/usr/include/dmd/druntime/import/object.di)";
     const client = tuple("depend", "src/depend.d");
     const supplier = tuple("object", "/usr/include/dmd/druntime/import/object.di");
