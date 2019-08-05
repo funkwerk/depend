@@ -56,13 +56,18 @@ void write(Output)(auto ref Output output, const Dependency[] dependencies)
 {
     import std.algorithm : sort;
 
-    bool[] written = new bool[dependencies.length];
-
     struct Node
     {
         string[] path;
 
         Node[string] children;
+
+        Dependency[] dependencies;
+
+        bool empty()
+        {
+            return children.empty && dependencies.empty;
+        }
 
         void add(string[] path, size_t offset = 0)
         {
@@ -78,6 +83,29 @@ void write(Output)(auto ref Output output, const Dependency[] dependencies)
 
             children[path[offset]].add(path, offset + 1);
         }
+
+        bool addDependency(Dependency dependency)
+        {
+            const clientPath = dependency.client.split('.');
+            const supplierPath = dependency.supplier.split('.');
+
+            foreach (ref child; children)
+            {
+                if (child.addDependency(dependency))
+                {
+                    return true;
+                }
+            }
+
+            // if this dependency can be placed here, ie. if it concerns strictly children of ours
+            if (clientPath.startsWithAndLonger(this.path) &&
+                supplierPath.startsWithAndLonger(this.path))
+            {
+                dependencies ~= dependency;
+                return true;
+            }
+            return false;
+        }
     }
 
     Node tree;
@@ -87,7 +115,10 @@ void write(Output)(auto ref Output output, const Dependency[] dependencies)
         .map!(a => a.split('.'))
         .each!(path => tree.add(path));
 
-    bool recurse(Node node, size_t indent)
+    dependencies.each!(dep => tree.addDependency(dep));
+
+    // output ends with the cursor at the end of the line!
+    void recurse(Node node, size_t indent)
     {
         import std.format : formattedWrite;
 
@@ -96,27 +127,18 @@ void write(Output)(auto ref Output output, const Dependency[] dependencies)
             output.formattedWrite!"%s"("    ".repeat.take(indent).join);
         }
 
-        bool wroteNewline = false;
-
         void writeNewline()
         {
             output.put("\n");
-            wroteNewline = true;
         }
-
-        bool childWroteNewline = false;
 
         node.children.keys.sort
             .map!(key => node.children[key])
             .each!((Node node)
             {
-                if (!childWroteNewline)
-                {
-                    writeNewline;
-                    childWroteNewline = true;
-                }
-
+                writeNewline;
                 writeIndent;
+
                 if (node.path.length == 1)
                 {
                     output.formattedWrite!"package %s {"(node.path.join('.'));
@@ -126,37 +148,27 @@ void write(Output)(auto ref Output output, const Dependency[] dependencies)
                     output.formattedWrite!"package %s as %s {"(node.path.back, node.path.join('.'));
                 }
 
-                bool childWroteNewline = recurse(node, indent + 1);
-
-                if (childWroteNewline)
+                if (!node.empty)
                 {
+                    recurse(node, indent + 1);
+
+                    writeNewline;
                     writeIndent;
                 }
-
-                output.put("}\n");
+                output.put("}");
             });
 
-        bool dependencyWroteNewline = false;
-
-        foreach (i, dependency; dependencies)
+        if (!node.dependencies.empty)
         {
-            if (!written[i] &&
-                dependency.client.split('.').startsWithAndLonger(node.path) &&
-                dependency.supplier.split('.').startsWithAndLonger(node.path))
-            {
-                if (!dependencyWroteNewline)
-                {
-                    writeNewline;
-                    dependencyWroteNewline = true;
-                }
-
-                writeIndent;
-                writeDependency(output, dependency);
-                written[i] = true;
-            }
+            writeNewline;
         }
 
-        return wroteNewline;
+        foreach (dependency; node.dependencies)
+        {
+            writeNewline;
+            writeIndent;
+            writeDependency(output, dependency);
+        }
     }
 
     output.put("@startuml\n");
@@ -164,12 +176,10 @@ void write(Output)(auto ref Output output, const Dependency[] dependencies)
     assert(tree.path.empty);
 
     recurse(tree, 0);
-
-    output.put("\n");
-    output.put("@enduml\n");
+    output.put("\n\n@enduml\n");
 }
 
-@("write Plant-UML package diagram")
+@("write PlantUML package diagram")
 unittest
 {
     import std.array : appender;
@@ -231,5 +241,4 @@ private void writeDependency(Output)(auto ref Output output, const Dependency de
     output.put(dependency.client);
     output.put(" ..> ");
     output.put(dependency.supplier);
-    output.put("\n");
 }
