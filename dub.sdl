@@ -8,7 +8,7 @@ buildRequirements "disallowDeprecations"
 
 configuration "debug" {
     targetName "depend"
-    targetPath "."
+    targetPath "build"
 }
 configuration "unittest" {
     dependency "dshould" version="~>0"
