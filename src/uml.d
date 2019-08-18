@@ -18,7 +18,6 @@ Dependency[] read(R)(R input)
 
 private void read(Input, Output)(Input input, auto ref Output output)
 {
-    import std.algorithm : endsWith, startsWith;
     import std.conv : to;
     import std.regex : matchFirst, regex;
 
@@ -54,129 +53,13 @@ unittest
 
 void write(Output)(auto ref Output output, const Dependency[] dependencies)
 {
-    import std.algorithm : sort;
+    Package hierarchy;
 
-    struct Node
-    {
-        string[] path;
-
-        Node[string] children;
-
-        Dependency[] dependencies;
-
-        bool empty()
-        {
-            return children.empty && dependencies.empty;
-        }
-
-        void add(string[] path, size_t offset = 0)
-        {
-            if (offset == path.length)
-            {
-                return;
-            }
-
-            if (path[offset] !in children)
-            {
-                children[path[offset]] = Node(path[0 .. offset + 1], null);
-            }
-
-            children[path[offset]].add(path, offset + 1);
-        }
-
-        bool addDependency(Dependency dependency)
-        {
-            const clientPath = dependency.client.split('.');
-            const supplierPath = dependency.supplier.split('.');
-
-            foreach (ref child; children)
-            {
-                if (child.addDependency(dependency))
-                {
-                    return true;
-                }
-            }
-
-            // if this dependency can be placed here, ie. if it concerns strictly children of ours
-            if (clientPath.startsWithAndLonger(this.path) &&
-                supplierPath.startsWithAndLonger(this.path))
-            {
-                dependencies ~= dependency;
-                return true;
-            }
-            return false;
-        }
-    }
-
-    Node tree;
-
-    dependencies.elements
-        .sort
-        .map!(a => a.split('.'))
-        .each!(path => tree.add(path));
-
-    dependencies.each!(dep => tree.addDependency(dep));
-
-    // output ends with the cursor at the end of the line!
-    void recurse(Node node, size_t indent)
-    {
-        import std.format : formattedWrite;
-
-        void writeIndent()
-        {
-            output.formattedWrite!"%s"("    ".repeat.take(indent).join);
-        }
-
-        void writeNewline()
-        {
-            output.put("\n");
-        }
-
-        node.children.keys.sort
-            .map!(key => node.children[key])
-            .each!((Node node)
-            {
-                writeNewline;
-                writeIndent;
-
-                if (node.path.length == 1)
-                {
-                    output.formattedWrite!"package %s {"(node.path.join('.'));
-                }
-                else
-                {
-                    output.formattedWrite!"package %s as %s {"(node.path.back, node.path.join('.'));
-                }
-
-                if (!node.empty)
-                {
-                    recurse(node, indent + 1);
-
-                    writeNewline;
-                    writeIndent;
-                }
-                output.put("}");
-            });
-
-        if (!node.dependencies.empty)
-        {
-            writeNewline;
-        }
-
-        foreach (dependency; node.dependencies)
-        {
-            writeNewline;
-            writeIndent;
-            writeDependency(output, dependency);
-        }
-    }
+    dependencies.each!(dependency => hierarchy.add(dependency));
 
     output.put("@startuml\n");
-
-    assert(tree.path.empty);
-
-    recurse(tree, 0);
-    output.put("\n\n@enduml\n");
+    hierarchy.write(output);
+    output.put("@enduml\n");
 }
 
 @("write PlantUML package diagram")
@@ -192,12 +75,10 @@ unittest
 
     const expected = `
         @startuml
-
         package a {}
         package b {}
 
         a ..> b
-
         @enduml
         `;
 
@@ -217,7 +98,6 @@ unittest
 
     const expected = `
         @startuml
-
         package a {
             package b as a.b {}
             package c as a.c {}
@@ -226,19 +106,79 @@ unittest
         }
 
         a ..> a.b
-
         @enduml
         `;
 
     output.data.should.equal(outdent(expected).stripLeft);
 }
 
-private alias startsWithAndLonger = (haystack, needle) =>
-    haystack.startsWith(needle) && !haystack.drop(needle.count).empty;
-
-private void writeDependency(Output)(auto ref Output output, const Dependency dependency)
+private struct Package
 {
-    output.put(dependency.client);
-    output.put(" ..> ");
-    output.put(dependency.supplier);
+    string[] path;
+
+    Package[string] subpackages;
+
+    Dependency[] dependencies;
+
+    void add(Dependency dependency)
+    {
+        const clientPath = dependency.client.split('.');
+        const supplierPath = dependency.supplier.split('.');
+        const path = commonPrefix(clientPath.dropBackOne, supplierPath.dropBackOne);
+
+        addPackage(clientPath);
+        addPackage(supplierPath);
+        addDependency(path, dependency);
+    }
+
+    void addPackage(const string[] path, size_t index = 0)
+    {
+        if (path[index] !in subpackages)
+            subpackages[path[index]] = Package(path[0 .. index + 1].dup);
+        if (index + 1 < path.length)
+            subpackages[path[index]].addPackage(path, index + 1);
+    }
+
+    void addDependency(const string[] path, Dependency dependency)
+    {
+        if (path.empty)
+            dependencies ~= dependency;
+        else
+            subpackages[path.front].addDependency(path.dropOne, dependency);
+    }
+
+    void write(Output)(auto ref Output output, size_t level = 0)
+    {
+        import std.format : formattedWrite;
+
+        void indent()
+        {
+            foreach (_; 0 .. level)
+                output.put("    ");
+        }
+
+        foreach (subpackage; subpackages.keys.sort.map!(key => subpackages[key]))
+        {
+            indent;
+            if (subpackage.path.length == 1)
+                output.formattedWrite!"package %s {"(subpackage.path.join('.'));
+            else
+                output.formattedWrite!"package %s as %s {"(subpackage.path.back, subpackage.path.join('.'));
+
+            if (!subpackage.subpackages.empty || !subpackage.dependencies.empty)
+            {
+                output.put('\n');
+                subpackage.write(output, level + 1);
+                indent;
+            }
+            output.put("}\n");
+        }
+        if (!dependencies.empty)
+            output.put('\n');
+        foreach (dependency; dependencies)
+        {
+            indent;
+            output.formattedWrite!"%s ..> %s\n"(dependency.client, dependency.supplier);
+        }
+    }
 }
