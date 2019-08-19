@@ -175,7 +175,7 @@ private struct Package
         }
         if (!dependencies.empty)
             output.put('\n');
-        foreach (dependency; dependencies)
+        foreach (dependency; dependencies.sort)
         {
             indent;
             output.formattedWrite!"%s ..> %s\n"(dependency.client, dependency.supplier);
