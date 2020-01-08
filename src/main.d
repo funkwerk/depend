@@ -6,13 +6,14 @@
 import core.stdc.stdlib;
 import deps;
 import graph;
-import settings : packages, readSettings = read;
+import settings : readSettings = read;
 import std.algorithm;
 import std.array;
 import std.regex;
 import std.stdio;
 import std.typecons;
 import uml;
+import util : fqnStartsWith, packages;
 
 void main(string[] args)
 {
@@ -78,7 +79,7 @@ void main(string[] args)
         {
             import uml : read;
 
-            uint count = 0;
+            bool errored = false;
             Dependency[] targetDependencies = null;
 
             foreach (targetFile; targetFiles)
@@ -99,13 +100,14 @@ void main(string[] args)
                     if (dependency.client.empty || dependency.supplier.empty || dependency.client == dependency.supplier)
                         continue;
                 }
-                if (!targetDependencies.canFind(dependency))
+                if (!targetDependencies.canFind!(a =>
+                    dependency.client.fqnStartsWith(a.client) && dependency.supplier.fqnStartsWith(a.supplier)))
                 {
                     stderr.writefln("error: unintended dependency %s -> %s", client, supplier);
-                    ++count;
+                    errored = true;
                 }
             }
-            if (count > 0)
+            if (errored)
                 exit(EXIT_FAILURE);
         }
         if (dot || targetFiles.empty)
