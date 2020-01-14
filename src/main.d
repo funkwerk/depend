@@ -13,7 +13,7 @@ import std.regex;
 import std.stdio;
 import std.typecons;
 import uml;
-import util : fqnStartsWith, packages;
+import util : crossedPackageBoundaries, fqnStartsWith, packages;
 
 void main(string[] args)
 {
@@ -75,8 +75,10 @@ void main(string[] args)
                 .map!(depsFile => readDependencies(File(depsFile)))
                 .join;
         actualDependencies = actualDependencies.sort.uniq.array;
+
         if (!targetFiles.empty)
         {
+            import std.range : repeat;
             import uml : read;
 
             bool errored = false;
@@ -87,6 +89,28 @@ void main(string[] args)
 
             if (!transitive)
                 targetDependencies.transitiveClosure;
+
+            // Packages in this list, when used in a dependency, implicitly include subpackages.
+            // Set to false if there's a dependency from a package inside <package> to a package outside <package>.
+            const transitivePackage =
+                targetDependencies.map!(dependency => crossedPackageBoundaries(dependency.client, dependency.supplier))
+                .joiner.assocArray(false.repeat); // crossed package boundaries are not transitive packages
+
+            bool canDepend(const string client, const string supplier)
+            {
+                bool moduleMatches(const string first, const string second)
+                {
+                    if (transitivePackage.get(first, true))
+                    {
+                        return first.fqnStartsWith(second);
+                    }
+                    return first == second;
+                }
+
+                return targetDependencies.canFind!(a =>
+                        moduleMatches(client, a.client) && moduleMatches(supplier, a.supplier));
+            }
+
             foreach (dependency; actualDependencies)
             {
                 const client = dependency.client;
@@ -97,11 +121,12 @@ void main(string[] args)
                 else
                 {
                     dependency = Dependency(client.packages, supplier.packages);
-                    if (dependency.client.empty || dependency.supplier.empty || dependency.client == dependency.supplier)
+                    if (dependency.client.empty ||
+                        dependency.supplier.empty ||
+                        dependency.client == dependency.supplier)
                         continue;
                 }
-                if (!targetDependencies.canFind!(a =>
-                    dependency.client.fqnStartsWith(a.client) && dependency.supplier.fqnStartsWith(a.supplier)))
+                if (!canDepend(client, supplier))
                 {
                     stderr.writefln("error: unintended dependency %s -> %s", client, supplier);
                     errored = true;
