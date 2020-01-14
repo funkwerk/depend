@@ -6,13 +6,14 @@
 import core.stdc.stdlib;
 import deps;
 import graph;
-import settings : packages, readSettings = read;
+import settings : readSettings = read;
 import std.algorithm;
 import std.array;
 import std.regex;
 import std.stdio;
 import std.typecons;
 import uml;
+import util : fqnStartsWith, packages;
 
 void main(string[] args)
 {
@@ -74,11 +75,12 @@ void main(string[] args)
                 .map!(depsFile => readDependencies(File(depsFile)))
                 .join;
         actualDependencies = actualDependencies.sort.uniq.array;
+
         if (!targetFiles.empty)
         {
             import uml : read;
 
-            uint count = 0;
+            bool errored = false;
             Dependency[] targetDependencies = null;
 
             foreach (targetFile; targetFiles)
@@ -86,6 +88,23 @@ void main(string[] args)
 
             if (!transitive)
                 targetDependencies.transitiveClosure;
+
+            bool canDepend(const string client, const string supplier)
+            {
+                // a -> b allows a.x -> b.y, unless there's a dependency a.x -> [not a].* or [not b].* -> b.y
+                const clientAllowNested = !targetDependencies.any!(a => a.crossesPrefix(client));
+                const supplierAllowNested = !targetDependencies.any!(a => a.crossesPrefix(supplier));
+
+                bool moduleMatches(const string first, const string second, const bool allowNested)
+                {
+                    return allowNested ? first.fqnStartsWith(second) : (first == second);
+                }
+
+                return targetDependencies.canFind!(a =>
+                        moduleMatches(client, a.client, clientAllowNested) &&
+                        moduleMatches(supplier, a.supplier, supplierAllowNested));
+            }
+
             foreach (dependency; actualDependencies)
             {
                 const client = dependency.client;
@@ -96,16 +115,18 @@ void main(string[] args)
                 else
                 {
                     dependency = Dependency(client.packages, supplier.packages);
-                    if (dependency.client.empty || dependency.supplier.empty || dependency.client == dependency.supplier)
+                    if (dependency.client.empty ||
+                        dependency.supplier.empty ||
+                        dependency.client == dependency.supplier)
                         continue;
                 }
-                if (!targetDependencies.canFind(dependency))
+                if (!canDepend(client, supplier))
                 {
                     stderr.writefln("error: unintended dependency %s -> %s", client, supplier);
-                    ++count;
+                    errored = true;
                 }
             }
-            if (count > 0)
+            if (errored)
                 exit(EXIT_FAILURE);
         }
         if (dot || targetFiles.empty)
