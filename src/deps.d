@@ -85,3 +85,24 @@ unittest
 
     reader(only(line)).should.equal(only(tuple(client, supplier)));
 }
+
+bool crossesPrefix(const Dependency dependency, const string prefix)
+{
+    import util : fqnPrefixed, fqnStartsWith;
+
+    return dependency.client.fqnPrefixed(prefix) && !dependency.supplier.fqnStartsWith(prefix)
+        || dependency.supplier.fqnPrefixed(prefix) && !dependency.client.fqnStartsWith(prefix);
+}
+
+@("dependencies crossing a prefix path")
+unittest
+{
+    assert(Dependency("a.x", "b.y").crossesPrefix("a"));
+    assert(Dependency("a.x", "b.y").crossesPrefix("b"));
+    assert(Dependency("a.x", "b").crossesPrefix("a"));
+    assert(!Dependency("a", "a.y").crossesPrefix("a"));
+    assert(!Dependency("a.x", "a").crossesPrefix("a"));
+    assert(!Dependency("a.x", "a.y").crossesPrefix("a"));
+    assert(!Dependency("a", "a.b.y").crossesPrefix("a"));
+    assert(Dependency("a", "a.b.y").crossesPrefix("a.b"));
+}

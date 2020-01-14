@@ -35,3 +35,16 @@ unittest
     "foo".fqnStartsWith("fo").should.be(false);
     "foo.bar.baz".fqnStartsWith("foo.ba").should.be(false);
 }
+
+bool fqnPrefixed(string haystack, string needle)
+{
+    return haystack.fqnStartsWith(needle) && haystack.length > needle.length;
+}
+
+@("fully-qualified module name prefixes other name")
+unittest
+{
+    "foo".fqnPrefixed("foo").should.be(false);
+    "foo".fqnPrefixed("bar").should.be(false);
+    "foo.bar".fqnPrefixed("foo").should.be(true);
+}

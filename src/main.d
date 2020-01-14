@@ -75,6 +75,7 @@ void main(string[] args)
                 .map!(depsFile => readDependencies(File(depsFile)))
                 .join;
         actualDependencies = actualDependencies.sort.uniq.array;
+
         if (!targetFiles.empty)
         {
             import uml : read;
@@ -87,6 +88,23 @@ void main(string[] args)
 
             if (!transitive)
                 targetDependencies.transitiveClosure;
+
+            bool canDepend(const string client, const string supplier)
+            {
+                // a -> b allows a.x -> b.y, unless there's a dependency a.x -> [not a].* or [not b].* -> b.y
+                const clientAllowNested = !targetDependencies.any!(a => a.crossesPrefix(client));
+                const supplierAllowNested = !targetDependencies.any!(a => a.crossesPrefix(supplier));
+
+                bool moduleMatches(const string first, const string second, const bool allowNested)
+                {
+                    return allowNested ? first.fqnStartsWith(second) : (first == second);
+                }
+
+                return targetDependencies.canFind!(a =>
+                        moduleMatches(client, a.client, clientAllowNested) &&
+                        moduleMatches(supplier, a.supplier, supplierAllowNested));
+            }
+
             foreach (dependency; actualDependencies)
             {
                 const client = dependency.client;
@@ -97,11 +115,12 @@ void main(string[] args)
                 else
                 {
                     dependency = Dependency(client.packages, supplier.packages);
-                    if (dependency.client.empty || dependency.supplier.empty || dependency.client == dependency.supplier)
+                    if (dependency.client.empty ||
+                        dependency.supplier.empty ||
+                        dependency.client == dependency.supplier)
                         continue;
                 }
-                if (!targetDependencies.canFind!(a =>
-                    dependency.client.fqnStartsWith(a.client) && dependency.supplier.fqnStartsWith(a.supplier)))
+                if (!canDepend(client, supplier))
                 {
                     stderr.writefln("error: unintended dependency %s -> %s", client, supplier);
                     errored = true;
