@@ -11,7 +11,7 @@ configuration "debug" {
     targetPath "build"
 }
 configuration "unittest" {
-    dependency "dshould" version="~>0"
+    dependency "dshould" version="~>1"
     dependency "unit-threaded" version="*"
     mainSourceFile "build/ut.d"
     excludedSourceFiles "src/main.d"

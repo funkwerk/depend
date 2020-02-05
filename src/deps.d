@@ -1,5 +1,6 @@
 module deps;
 
+import std.algorithm;
 import std.range;
 import std.regex;
 import std.stdio;
@@ -84,4 +85,82 @@ unittest
     const supplier = tuple("object", "/usr/include/dmd/druntime/import/object.di");
 
     reader(only(line)).should.equal(only(tuple(client, supplier)));
+}
+
+class DependencyChecker
+{
+    private Dependency[] targetDependencies;
+
+    // Packages in this list, when used in a dependency, implicitly include subpackages.
+    // Set to false if there's a dependency from a package inside <package> to a package outside <package>.
+    private bool[const string] transitivePackages;
+
+    this(Dependency[] targetDependencies)
+    {
+        import util : crossedPackageBoundaries;
+
+        this.targetDependencies = targetDependencies;
+        this.transitivePackages = targetDependencies.map!(
+            dependency => crossedPackageBoundaries(dependency.client, dependency.supplier))
+            .joiner.assocArray(false.repeat); // crossed package boundaries are not transitive packages
+    }
+
+    bool canDepend(const string client, const string supplier)
+    {
+        import util : fqnStartsWith;
+
+        bool dependencyMatches(const Dependency dependency)
+        {
+            // A -> A.X never allows subpackages of A!
+            // because A -> A.X does not break A's transitivity, there would otherwise
+            // be no way to refer to "submodules of A".
+            const dependencyIsInternal = dependency.supplier.fqnStartsWith(dependency.client);
+
+            bool moduleMatches(const string module_, const string dependencyModule)
+            {
+                const packageIsTransitive = this.transitivePackages.get(dependencyModule, true);
+
+                if (packageIsTransitive && !dependencyIsInternal)
+                {
+                    return module_.fqnStartsWith(dependencyModule);
+                }
+                return module_ == dependencyModule;
+            }
+            return moduleMatches(client, dependency.client) && moduleMatches(supplier, dependency.supplier);
+        }
+
+        return this.targetDependencies.canFind!dependencyMatches;
+    }
+}
+
+@("dependency inside transitive package")
+unittest
+{
+    with (new DependencyChecker([Dependency("X", "Y")]))
+    {
+        canDepend("X.A", "Y.B").should.be(true);
+    }
+}
+
+@("dependency inside non-transitive package")
+unittest
+{
+    // X.A -> Y breaks the transitivity of X because it crosses the X boundary
+    with (new DependencyChecker([
+        Dependency("X", "Y"),
+        Dependency("X.Q", "Y")]))
+    {
+        canDepend("X.A", "Y.B").should.be(false);
+    }
+}
+
+@("cross-dependency inside package where client is transitive and has interior dependency")
+unittest
+{
+    with (new DependencyChecker([
+        Dependency("X", "X.A"),
+        Dependency("X", "X.B")]))
+    {
+        canDepend("X.A", "X.B").should.be(false);
+    }
 }

@@ -87,19 +87,3 @@ unittest
         detail.should.be(true);
     }
 }
-
-string packages(string fullyQualifiedName)
-{
-    import std.range : dropBackOne;
-
-    return fullyQualifiedName.split('.')
-        .dropBackOne
-        .join('.');
-}
-
-@("split packages from a fully-qualified module name")
-unittest
-{
-    packages("bar.baz.foo").should.equal("bar.baz");
-    packages("foo").should.be.empty;
-}

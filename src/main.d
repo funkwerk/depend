@@ -6,13 +6,14 @@
 import core.stdc.stdlib;
 import deps;
 import graph;
-import settings : packages, readSettings = read;
+import settings : readSettings = read;
 import std.algorithm;
 import std.array;
 import std.regex;
 import std.stdio;
 import std.typecons;
 import uml;
+import util : crossedPackageBoundaries, fqnStartsWith, packages;
 
 void main(string[] args)
 {
@@ -74,11 +75,13 @@ void main(string[] args)
                 .map!(depsFile => readDependencies(File(depsFile)))
                 .join;
         actualDependencies = actualDependencies.sort.uniq.array;
+
         if (!targetFiles.empty)
         {
+            import std.range : repeat;
             import uml : read;
 
-            uint count = 0;
+            bool errored = false;
             Dependency[] targetDependencies = null;
 
             foreach (targetFile; targetFiles)
@@ -86,26 +89,29 @@ void main(string[] args)
 
             if (!transitive)
                 targetDependencies.transitiveClosure;
+
+            auto checker = new DependencyChecker(targetDependencies);
+
             foreach (dependency; actualDependencies)
             {
-                const client = dependency.client;
-                const supplier = dependency.supplier;
-
-                if (detail)
-                    dependency = Dependency(client, supplier);
-                else
+                with (dependency)
                 {
-                    dependency = Dependency(client.packages, supplier.packages);
-                    if (dependency.client.empty || dependency.supplier.empty || dependency.client == dependency.supplier)
-                        continue;
-                }
-                if (!targetDependencies.canFind(dependency))
-                {
-                    stderr.writefln("error: unintended dependency %s -> %s", client, supplier);
-                    ++count;
+                    if (!detail)
+                    {
+                        dependency = Dependency(client.packages, supplier.packages);
+                        if (client.empty ||
+                            supplier.empty ||
+                            client == supplier)
+                            continue;
+                    }
+                    if (!checker.canDepend(client, supplier))
+                    {
+                        stderr.writefln("error: unintended dependency %s -> %s", client, supplier);
+                        errored = true;
+                    }
                 }
             }
-            if (count > 0)
+            if (errored)
                 exit(EXIT_FAILURE);
         }
         if (dot || targetFiles.empty)
