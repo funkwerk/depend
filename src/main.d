@@ -90,36 +90,7 @@ void main(string[] args)
             if (!transitive)
                 targetDependencies.transitiveClosure;
 
-            // Packages in this list, when used in a dependency, implicitly include subpackages.
-            // Set to false if there's a dependency from a package inside <package> to a package outside <package>.
-            const transitivePackage =
-                targetDependencies.map!(dependency => crossedPackageBoundaries(dependency.client, dependency.supplier))
-                .joiner.assocArray(false.repeat); // crossed package boundaries are not transitive packages
-
-            bool canDepend(const string client, const string supplier)
-            {
-                bool dependencyMatches(const Dependency dependency)
-                {
-                    // A -> A.X never allows subpackages of A!
-                    // because A -> A.X does not break A's transitivity, there would otherwise
-                    // be no way to refer to "submodules of A".
-                    const dependencyIsInternal = dependency.supplier.fqnStartsWith(dependency.client);
-
-                    bool moduleMatches(const string first, const string second)
-                    {
-                        const packageIsTransitive = transitivePackage.get(first, true);
-
-                        if (packageIsTransitive && !dependencyIsInternal)
-                        {
-                            return first.fqnStartsWith(second);
-                        }
-                        return first == second;
-                    }
-                    return moduleMatches(client, dependency.client) && moduleMatches(supplier, dependency.supplier);
-                }
-
-                return targetDependencies.canFind!dependencyMatches;
-            }
+            auto checker = new DependencyChecker(targetDependencies);
 
             foreach (dependency; actualDependencies)
             {
@@ -133,7 +104,7 @@ void main(string[] args)
                             client == supplier)
                             continue;
                     }
-                    if (!canDepend(client, supplier))
+                    if (!checker.canDepend(client, supplier))
                     {
                         stderr.writefln("error: unintended dependency %s -> %s", client, supplier);
                         errored = true;
