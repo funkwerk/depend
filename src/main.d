@@ -98,38 +98,46 @@ void main(string[] args)
 
             bool canDepend(const string client, const string supplier)
             {
-                bool moduleMatches(const string first, const string second)
+                bool dependencyMatches(const Dependency dependency)
                 {
-                    if (transitivePackage.get(first, true))
+                    // A -> A.X never allows subpackages of A!
+                    // because A -> A.X does not break A's transitivity, there would otherwise
+                    // be no way to refer to "submodules of A".
+                    const dependencyIsInternal = dependency.supplier.fqnStartsWith(dependency.client);
+
+                    bool moduleMatches(const string first, const string second)
                     {
-                        return first.fqnStartsWith(second);
+                        const packageIsTransitive = transitivePackage.get(first, true);
+
+                        if (packageIsTransitive && !dependencyIsInternal)
+                        {
+                            return first.fqnStartsWith(second);
+                        }
+                        return first == second;
                     }
-                    return first == second;
+                    return moduleMatches(client, dependency.client) && moduleMatches(supplier, dependency.supplier);
                 }
 
-                return targetDependencies.canFind!(a =>
-                        moduleMatches(client, a.client) && moduleMatches(supplier, a.supplier));
+                return targetDependencies.canFind!dependencyMatches;
             }
 
             foreach (dependency; actualDependencies)
             {
-                const client = dependency.client;
-                const supplier = dependency.supplier;
-
-                if (detail)
-                    dependency = Dependency(client, supplier);
-                else
+                with (dependency)
                 {
-                    dependency = Dependency(client.packages, supplier.packages);
-                    if (dependency.client.empty ||
-                        dependency.supplier.empty ||
-                        dependency.client == dependency.supplier)
-                        continue;
-                }
-                if (!canDepend(client, supplier))
-                {
-                    stderr.writefln("error: unintended dependency %s -> %s", client, supplier);
-                    errored = true;
+                    if (!detail)
+                    {
+                        dependency = Dependency(client.packages, supplier.packages);
+                        if (client.empty ||
+                            supplier.empty ||
+                            client == supplier)
+                            continue;
+                    }
+                    if (!canDepend(client, supplier))
+                    {
+                        stderr.writefln("error: unintended dependency %s -> %s", client, supplier);
+                        errored = true;
+                    }
                 }
             }
             if (errored)
