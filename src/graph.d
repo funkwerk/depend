@@ -3,7 +3,7 @@ module graph;
 import std.algorithm;
 import std.range;
 import std.typecons;
-version (unittest) import dshould;
+version (unittest) import unit_threaded;
 
 alias Dependency = Tuple!(string, "client", string, "supplier");
 
@@ -46,7 +46,7 @@ unittest
         }
         `;
 
-    output.data.should.equal(outdent(expected).stripLeft);
+    output.data.should.be == outdent(expected).stripLeft;
 }
 
 void transitiveClosure(ref Dependency[] dependencies)
@@ -104,8 +104,8 @@ unittest
     auto dependencies = [Dependency("a", "b"), Dependency("b", "c"), Dependency("a", "c")];
     auto cyclicDependencies = transitiveReduction(dependencies);
 
-    dependencies.should.equal([Dependency("a", "b"), Dependency("b", "c")]);
-    cyclicDependencies.should.be.empty;
+    dependencies.should.be == [Dependency("a", "b"), Dependency("b", "c")];
+    cyclicDependencies.shouldBeEmpty;
 }
 
 @("apply transitive reduction to cyclic dependencies")
@@ -114,8 +114,8 @@ unittest
     auto dependencies = [Dependency("a", "b"), Dependency("b", "c"), Dependency("c", "a")];
     auto cyclicDependencies = transitiveReduction(dependencies);
 
-    dependencies.should.equal([Dependency("a", "b"), Dependency("b", "c"), Dependency("c", "a")]);
-    cyclicDependencies.sort.should.equal(dependencies);
+    dependencies.should.be == [Dependency("a", "b"), Dependency("b", "c"), Dependency("c", "a")];
+    cyclicDependencies.sort.should.be == dependencies;
 }
 
 string[] elements(in Dependency[] dependencies)

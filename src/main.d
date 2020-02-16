@@ -1,4 +1,4 @@
-//          Copyright Mario Kröplin 2018.
+//          Copyright Mario Kröplin 2020.
 // Distributed under the Boost Software License, Version 1.0.
 //    (See accompanying file LICENSE_1_0.txt or copy at
 //          https://www.boost.org/LICENSE_1_0.txt)
@@ -78,7 +78,7 @@ void main(string[] args)
         {
             import uml : read;
 
-            uint count = 0;
+            bool success = true;
             Dependency[] targetDependencies = null;
 
             foreach (targetFile; targetFiles)
@@ -102,10 +102,10 @@ void main(string[] args)
                 if (!targetDependencies.canFind(dependency))
                 {
                     stderr.writefln("error: unintended dependency %s -> %s", client, supplier);
-                    ++count;
+                    success = false;
                 }
             }
-            if (count > 0)
+            if (!success)
                 exit(EXIT_FAILURE);
         }
         if (dot || targetFiles.empty)

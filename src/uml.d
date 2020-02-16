@@ -4,7 +4,7 @@ import graph;
 import std.algorithm;
 import std.range;
 import std.stdio;
-version (unittest) import dshould;
+version (unittest) import unit_threaded;
 
 Dependency[] read(R)(R input)
 {
@@ -44,11 +44,11 @@ private void read(Input, Output)(Input input, auto ref Output output)
 @("read Plant-UML dependencies")
 unittest
 {
-    read(only("a .> b")).should.equal([Dependency("a", "b")]);
-    read(only("a <. b")).should.equal([Dependency("b", "a")]);
-    read(only("a <.> b")).should.equal([Dependency("a", "b"), Dependency("b", "a")]);
-    read(only("a.[#red]>b")).should.equal([Dependency("a", "b")]);
-    read(only("a.[#red]le>b")).should.equal([Dependency("a", "b")]);
+    read(only("a .> b")).should.be == [Dependency("a", "b")];
+    read(only("a <. b")).should.be == [Dependency("b", "a")];
+    read(only("a <.> b")).should.be == [Dependency("a", "b"), Dependency("b", "a")];
+    read(only("a.[#red]>b")).should.be == [Dependency("a", "b")];
+    read(only("a.[#red]le>b")).should.be == [Dependency("a", "b")];
 }
 
 void write(Output)(auto ref Output output, const Dependency[] dependencies)
@@ -82,7 +82,7 @@ unittest
         @enduml
         `;
 
-    output.data.should.equal(outdent(expected).stripLeft);
+    output.data.should.be == outdent(expected).stripLeft;
 }
 
 @("place internal dependencies inside the package")
@@ -109,7 +109,7 @@ unittest
         @enduml
         `;
 
-    output.data.should.equal(outdent(expected).stripLeft);
+    output.data.should.be == outdent(expected).stripLeft;
 }
 
 private struct Package

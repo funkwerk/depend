@@ -4,7 +4,7 @@ import std.range;
 import std.regex;
 import std.stdio;
 import std.typecons;
-version (unittest) import dshould;
+version (unittest) import unit_threaded;
 
 alias Dependency = Tuple!(string, "client", string, "supplier");
 
@@ -83,5 +83,5 @@ unittest
     const client = tuple("depend", "src/depend.d");
     const supplier = tuple("object", "/usr/include/dmd/druntime/import/object.di");
 
-    reader(only(line)).should.equal(only(tuple(client, supplier)));
+    reader(only(line)).should.be == only(tuple(client, supplier));
 }

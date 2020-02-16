@@ -3,7 +3,7 @@ module settings;
 import core.stdc.stdlib;
 import std.range;
 import std.stdio;
-version (unittest) import dshould;
+version (unittest) import unit_threaded;
 
 struct Settings
 {
@@ -71,8 +71,8 @@ unittest
 
     with (settings)
     {
-        depsFiles.should.equal(["dependencies"]);
-        targetFiles.should.equal(["target"]);
+        depsFiles.should.be == ["dependencies"];
+        targetFiles.should.be == ["target"];
     }
 }
 
@@ -83,16 +83,17 @@ unittest
 
     with (settings)
     {
-        unrecognizedArgs.should.equal(["main.d"]);
-        detail.should.be(true);
+        unrecognizedArgs.should.be == ["main.d"];
+        detail.should.be == true;
     }
 }
 
 string packages(string fullyQualifiedName)
 {
+    import std.algorithm : splitter;
     import std.range : dropBackOne;
 
-    return fullyQualifiedName.split('.')
+    return fullyQualifiedName.splitter('.')
         .dropBackOne
         .join('.');
 }
@@ -100,6 +101,6 @@ string packages(string fullyQualifiedName)
 @("split packages from a fully-qualified module name")
 unittest
 {
-    packages("bar.baz.foo").should.equal("bar.baz");
-    packages("foo").should.be.empty;
+    packages("bar.baz.foo").should.be == "bar.baz";
+    packages("foo").shouldBeEmpty;
 }
