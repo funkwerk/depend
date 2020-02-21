@@ -6,7 +6,34 @@ import std.stdio;
 import std.typecons;
 version (unittest) import unit_threaded;
 
-alias Dependency = Tuple!(string, "client", string, "supplier");
+struct Element
+{
+    string name;
+
+    Flag!"recursive" recursive;
+
+    int opCmp(const ref Element other) const
+    {
+        return tuple(this.name, this.recursive).opCmp(tuple(other.name, other.recursive));
+    }
+
+    string toLabel() const
+    {
+        return this.recursive ? (this.name ~ ".*") : this.name;
+    }
+
+    string toPackage() const
+    {
+        return this.recursive ? (this.name ~ ".all") : this.name;
+    }
+
+    string toString() const
+    {
+        return toPackage;
+    }
+}
+
+alias Dependency = Tuple!(Element, "client", Element, "supplier");
 
 auto moduleDependencies(alias predicate)(File file)
 {
@@ -14,7 +41,9 @@ auto moduleDependencies(alias predicate)(File file)
 
     return reader(file.byLine)
         .filter!predicate
-        .map!(dependency => Dependency(dependency.client.name, dependency.supplier.name));
+        .map!(dependency => Dependency(
+            Element(dependency.client.name, No.recursive),
+            Element(dependency.supplier.name, No.recursive)));
 }
 
 auto reader(R)(R input)
