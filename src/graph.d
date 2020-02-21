@@ -1,11 +1,10 @@
 module graph;
 
+import deps : Dependency, Element;
 import std.algorithm;
 import std.range;
 import std.typecons;
 version (unittest) import unit_threaded;
-
-alias Dependency = Tuple!(string, "client", string, "supplier");
 
 void write(Output)(auto ref Output output, const Dependency[] dependencies)
 {
@@ -15,12 +14,12 @@ void write(Output)(auto ref Output output, const Dependency[] dependencies)
     output.put("node [shape=box];\n");
     foreach (element; dependencies.elements)
     {
-        output.formattedWrite!(`"%s"`)(element);
+        output.formattedWrite!(`"%s"`)(element.name);
         output.put('\n');
     }
     foreach (dependency; dependencies)
     {
-        output.formattedWrite!(`"%s" -> "%s"`)(dependency.client, dependency.supplier);
+        output.formattedWrite!`"%s" -> "%s"`(dependency.client, dependency.supplier);
         output.put('\n');
     }
     output.put("}\n");
@@ -33,7 +32,7 @@ unittest
     import std.string : outdent, stripLeft;
 
     auto output = appender!string;
-    const dependencies = [Dependency("a", "b")];
+    const dependencies = [Dependency(Element("a", No.recursive), Element("b", No.recursive))];
 
     output.write(dependencies);
 
@@ -51,7 +50,7 @@ unittest
 
 void transitiveClosure(ref Dependency[] dependencies)
 {
-    string[] elements = dependencies.elements;
+    Element[] elements = dependencies.elements;
 
     foreach (element; elements)
         foreach (client; elements)
@@ -63,10 +62,10 @@ void transitiveClosure(ref Dependency[] dependencies)
 
 Dependency[] transitiveReduction(ref Dependency[] dependencies)
 {
-    bool[string] mark = null;
+    bool[Element] mark = null;
     Dependency[] cyclicDependencies = null;
 
-    void traverse(string node)
+    void traverse(Element node)
     {
         import std.array : array;
 
@@ -101,26 +100,29 @@ Dependency[] transitiveReduction(ref Dependency[] dependencies)
 @("apply transitive reduction")
 unittest
 {
-    auto dependencies = [Dependency("a", "b"), Dependency("b", "c"), Dependency("a", "c")];
+    auto dependencies = [dependency("a", "b"), dependency("b", "c"), dependency("a", "c")];
     auto cyclicDependencies = transitiveReduction(dependencies);
 
-    dependencies.should.be == [Dependency("a", "b"), Dependency("b", "c")];
+    dependencies.should.be == [dependency("a", "b"), dependency("b", "c")];
     cyclicDependencies.shouldBeEmpty;
 }
 
 @("apply transitive reduction to cyclic dependencies")
 unittest
 {
-    auto dependencies = [Dependency("a", "b"), Dependency("b", "c"), Dependency("c", "a")];
+    auto dependencies = [dependency("a", "b"), dependency("b", "c"), dependency("c", "a")];
     auto cyclicDependencies = transitiveReduction(dependencies);
 
-    dependencies.should.be == [Dependency("a", "b"), Dependency("b", "c"), Dependency("c", "a")];
+    dependencies.should.be == [dependency("a", "b"), dependency("b", "c"), dependency("c", "a")];
     cyclicDependencies.sort.should.be == dependencies;
 }
 
-string[] elements(in Dependency[] dependencies)
+private alias dependency = (client, supplier) =>
+    Dependency(Element(client, No.recursive), Element(supplier, No.recursive));
+
+Element[] elements(in Dependency[] dependencies)
 {
-    string[] elements = null;
+    Element[] elements = null;
 
     foreach (dependency; dependencies)
     {

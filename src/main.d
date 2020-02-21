@@ -13,6 +13,7 @@ import std.regex;
 import std.stdio;
 import std.typecons;
 import uml;
+import util;
 
 void main(string[] args)
 {
@@ -95,11 +96,33 @@ void main(string[] args)
                     dependency = Dependency(client, supplier);
                 else
                 {
-                    dependency = Dependency(client.packages, supplier.packages);
-                    if (dependency.client.empty || dependency.supplier.empty || dependency.client == dependency.supplier)
+                    dependency = Dependency(
+                        Element(client.name.packages, No.recursive),
+                        Element(supplier.name.packages, No.recursive));
+                    if (dependency.client.name.empty || dependency.supplier.name.empty ||
+                        dependency.client == dependency.supplier)
                         continue;
                 }
-                if (!targetDependencies.canFind(dependency))
+                bool matchDependency(const Dependency targetDependency, const Dependency actualDependency)
+                {
+                    bool matchPackage(bool recursive, string targetPackage, string actualPackage)
+                    {
+                        if (recursive)
+                        {
+                            return actualPackage.fqnStartsWith(targetPackage);
+                        }
+                        else
+                        {
+                            return actualPackage == targetPackage;
+                        }
+                    }
+                    return matchPackage(targetDependency.client.recursive, targetDependency.client.name,
+                            actualDependency.client.name) &&
+                        matchPackage(targetDependency.supplier.recursive, targetDependency.supplier.name,
+                            actualDependency.supplier.name);
+                }
+
+                if (!targetDependencies.any!(a => matchDependency(a, dependency)))
                 {
                     stderr.writefln("error: unintended dependency %s -> %s", client, supplier);
                     success = false;
@@ -118,11 +141,11 @@ void main(string[] args)
             {
                 foreach (dependency; actualDependencies)
                 {
-                    const client = dependency.client.packages;
-                    const supplier = dependency.supplier.packages;
+                    const client = dependency.client.name.packages;
+                    const supplier = dependency.supplier.name.packages;
 
                     if (!client.empty && !supplier.empty && client != supplier)
-                        dependencies_.add(Dependency(client, supplier));
+                        dependencies_.add(Dependency(Element(client, No.recursive), Element(supplier, No.recursive)));
                 }
             }
             if (!transitive)
