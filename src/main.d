@@ -76,6 +76,7 @@ void main(string[] args)
         actualDependencies = actualDependencies.sort.uniq.array;
         if (!targetFiles.empty)
         {
+            import check : Checker;
             import uml : read;
 
             bool success = true;
@@ -86,6 +87,9 @@ void main(string[] args)
 
             if (!transitive)
                 targetDependencies.transitiveClosure;
+
+            const checker = Checker(targetDependencies, strict);
+
             foreach (dependency; actualDependencies)
             {
                 const client = dependency.client;
@@ -99,7 +103,7 @@ void main(string[] args)
                     if (dependency.client.empty || dependency.supplier.empty || dependency.client == dependency.supplier)
                         continue;
                 }
-                if (!targetDependencies.canFind(dependency))
+                if (!checker.allows(dependency))
                 {
                     stderr.writefln("error: unintended dependency %s -> %s", client, supplier);
                     success = false;

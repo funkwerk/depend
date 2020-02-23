@@ -1,10 +1,12 @@
 module uml;
 
-import graph;
 import std.algorithm;
 import std.range;
 import std.stdio;
+import std.typecons;
 version (unittest) import unit_threaded;
+
+alias Dependency = Tuple!(string, "client", string, "supplier");
 
 Dependency[] read(R)(R input)
 {

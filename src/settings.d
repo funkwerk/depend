@@ -14,15 +14,12 @@ struct Settings
     bool transitive = false;
     bool dot = false;
     string[] targetFiles = null;
+    bool strict = false;
     string[] unrecognizedArgs;
 }
 
 Settings read(string[] args)
-in
-{
-    assert(!args.empty);
-}
-do
+in (!args.empty)
 {
     import std.getopt : config, defaultGetoptPrinter, getopt, GetoptResult;
 
@@ -43,6 +40,7 @@ do
                 "transitive|t", "Keep transitive dependencies", &transitive,
                 "dot", "Write dependency graph in the DOT language", &dot,
                 "check", "Check against the PlantUML target dependencies", &targetFiles,
+                "strict", "Do not use simplifying assumptions for the check", &strict,
             );
         }
         catch (Exception exception)
