@@ -1,9 +1,8 @@
 module check;
 
+import model;
 import std.typecons;
 version (unittest) import unit_threaded;
-
-alias Dependency = Tuple!(string, "client", string, "supplier");
 
 struct Checker
 {
@@ -11,7 +10,7 @@ struct Checker
 
     private Dependency[]  implicitDependencies;
 
-    this(const Dependency[] targetDependencies, bool strict)
+    this(Dependency[] targetDependencies, bool strict)
     {
         import std.algorithm : partition;
 
@@ -35,7 +34,7 @@ struct Checker
         this.implicitDependencies = dependencies[0 .. $ - this.explicitDependencies.length];
 }
 
-    bool allows(Dependency actualDependency) const
+    bool allows(Dependency actualDependency)
     {
         import std.algorithm : any;
 
@@ -66,10 +65,10 @@ unittest
 
 bool implies(Dependency lhs, Dependency rhs)
 {
-    import std.algorithm : splitter, startsWith;
+    import std.algorithm : startsWith;
 
-    return lhs.client.splitter('.').startsWith(rhs.client.splitter('.'))
-        && lhs.supplier.splitter('.').startsWith(rhs.supplier.splitter('.'));
+    return lhs.client.names.startsWith(rhs.client.names)
+        && lhs.supplier.names.startsWith(rhs.supplier.names);
 }
 
 @("check for implied dependencies")

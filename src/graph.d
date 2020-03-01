@@ -1,13 +1,12 @@
 module graph;
 
+import model;
 import std.algorithm;
 import std.range;
 import std.typecons;
 version (unittest) import unit_threaded;
 
-alias Dependency = Tuple!(string, "client", string, "supplier");
-
-void write(Output)(auto ref Output output, const Dependency[] dependencies)
+void write(Output)(auto ref Output output, Dependency[] dependencies)
 {
     import std.format : formattedWrite;
 
@@ -33,7 +32,7 @@ unittest
     import std.string : outdent, stripLeft;
 
     auto output = appender!string;
-    const dependencies = [Dependency("a", "b")];
+    auto dependencies = [Dependency("a", "b")];
 
     output.write(dependencies);
 
@@ -51,7 +50,7 @@ unittest
 
 void transitiveClosure(ref Dependency[] dependencies)
 {
-    string[] elements = dependencies.elements;
+    FullyQualifiedName[] elements = dependencies.elements;
 
     foreach (element; elements)
         foreach (client; elements)
@@ -63,10 +62,10 @@ void transitiveClosure(ref Dependency[] dependencies)
 
 Dependency[] transitiveReduction(ref Dependency[] dependencies)
 {
-    bool[string] mark = null;
+    bool[FullyQualifiedName] mark = null;
     Dependency[] cyclicDependencies = null;
 
-    void traverse(string node)
+    void traverse(FullyQualifiedName node)
     {
         import std.array : array;
 
@@ -118,9 +117,9 @@ unittest
     cyclicDependencies.sort.should.be == dependencies;
 }
 
-string[] elements(in Dependency[] dependencies)
+FullyQualifiedName[] elements(Dependency[] dependencies)
 {
-    string[] elements = null;
+    FullyQualifiedName[] elements = null;
 
     foreach (dependency; dependencies)
     {

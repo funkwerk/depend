@@ -1,6 +1,7 @@
 module settings;
 
 import core.stdc.stdlib;
+import model;
 import std.range;
 import std.stdio;
 version (unittest) import unit_threaded;
@@ -10,6 +11,7 @@ struct Settings
     string[] depsFiles = null;
     string compiler = "dmd";
     string pattern = null;
+    string[] umlFiles = null;
     bool detail = false;
     bool transitive = false;
     bool dot = false;
@@ -36,6 +38,7 @@ in (!args.empty)
                 "deps", "Read module dependencies from file", &depsFiles,
                 "compiler|c", "Specify the compiler to use (default: dmd)", &compiler,
                 "filter", "Filter source files  matching the regular expression", &pattern,
+                "uml", "Read dependencies from PlantUML file", &umlFiles,
                 "detail", "Inspect dependencies between modules instead of packages", &detail,
                 "transitive|t", "Keep transitive dependencies", &transitive,
                 "dot", "Write dependency graph in the DOT language", &dot,
@@ -84,21 +87,4 @@ unittest
         unrecognizedArgs.should.be == ["main.d"];
         detail.should.be == true;
     }
-}
-
-string packages(string fullyQualifiedName)
-{
-    import std.algorithm : splitter;
-    import std.range : dropBackOne;
-
-    return fullyQualifiedName.splitter('.')
-        .dropBackOne
-        .join('.');
-}
-
-@("split packages from a fully-qualified module name")
-unittest
-{
-    packages("bar.baz.foo").should.be == "bar.baz";
-    packages("foo").shouldBeEmpty;
 }

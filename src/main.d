@@ -6,7 +6,8 @@
 import core.stdc.stdlib;
 import deps;
 import graph;
-import settings : packages, readSettings = read;
+import model;
+import settings : readSettings = read;
 import std.algorithm;
 import std.array;
 import std.regex;
@@ -52,7 +53,7 @@ void main(string[] args)
 
         Dependency[] actualDependencies;
 
-        if (depsFiles.empty)
+        if (depsFiles.empty && umlFiles.empty)
         {
             import std.process : pipeProcess, Redirect, wait;
 
@@ -70,9 +71,14 @@ void main(string[] args)
             actualDependencies = readDependencies(pipes.stdout);
         }
         else
-            actualDependencies = depsFiles
+        {
+            actualDependencies ~= depsFiles
                 .map!(depsFile => readDependencies(File(depsFile)))
                 .join;
+            actualDependencies ~= umlFiles
+                .map!(umlFile => read(File(umlFile).byLine))
+                .join;
+        }
         actualDependencies = actualDependencies.sort.uniq.array;
         if (!targetFiles.empty)
         {
@@ -88,19 +94,20 @@ void main(string[] args)
             if (!transitive)
                 targetDependencies.transitiveClosure;
 
-            const checker = Checker(targetDependencies, strict);
+            auto checker = Checker(targetDependencies, strict);
 
             foreach (dependency; actualDependencies)
             {
-                const client = dependency.client;
-                const supplier = dependency.supplier;
+                auto client = dependency.client;
+                auto supplier = dependency.supplier;
 
                 if (detail)
                     dependency = Dependency(client, supplier);
                 else
                 {
                     dependency = Dependency(client.packages, supplier.packages);
-                    if (dependency.client.empty || dependency.supplier.empty || dependency.client == dependency.supplier)
+                    if (dependency.client.names.empty || dependency.supplier.names.empty
+                        || dependency.client == dependency.supplier)
                         continue;
                 }
                 if (!checker.allows(dependency))

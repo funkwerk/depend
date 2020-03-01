@@ -1,12 +1,11 @@
 module uml;
 
+import model;
 import std.algorithm;
 import std.range;
 import std.stdio;
 import std.typecons;
 version (unittest) import unit_threaded;
-
-alias Dependency = Tuple!(string, "client", string, "supplier");
 
 Dependency[] read(R)(R input)
 {
@@ -43,7 +42,7 @@ private void read(Input, Output)(Input input, auto ref Output output)
     }
 }
 
-@("read Plant-UML dependencies")
+@("read PlantUML dependencies")
 unittest
 {
     read(only("a .> b")).should.be == [Dependency("a", "b")];
@@ -53,7 +52,7 @@ unittest
     read(only("a.[#red]le>b")).should.be == [Dependency("a", "b")];
 }
 
-void write(Output)(auto ref Output output, const Dependency[] dependencies)
+void write(Output)(auto ref Output output, Dependency[] dependencies)
 {
     Package hierarchy;
 
@@ -71,7 +70,7 @@ unittest
     import std.string : outdent, stripLeft;
 
     auto output = appender!string;
-    const dependencies = [Dependency("a", "b")];
+    auto dependencies = [Dependency("a", "b")];
 
     output.write(dependencies);
 
@@ -94,7 +93,7 @@ unittest
     import std.string : outdent, stripLeft;
 
     auto output = appender!string;
-    const dependencies = [Dependency("a", "a.b"), Dependency("a.b", "a.c")];
+    auto dependencies = [Dependency("a", "a.b"), Dependency("a.b", "a.c")];
 
     output.write(dependencies);
 
@@ -124,8 +123,8 @@ private struct Package
 
     void add(Dependency dependency)
     {
-        const clientPath = dependency.client.split('.');
-        const supplierPath = dependency.supplier.split('.');
+        const clientPath = dependency.client.names;
+        const supplierPath = dependency.supplier.names;
         const path = commonPrefix(clientPath.dropBackOne, supplierPath.dropBackOne);
 
         addPackage(clientPath);

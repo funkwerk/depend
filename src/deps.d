@@ -1,12 +1,11 @@
 module deps;
 
+import model;
 import std.range;
 import std.regex;
 import std.stdio;
 import std.typecons;
 version (unittest) import unit_threaded;
-
-alias Dependency = Tuple!(string, "client", string, "supplier");
 
 auto moduleDependencies(alias predicate)(File file)
 {
