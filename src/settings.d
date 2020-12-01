@@ -18,6 +18,7 @@ struct Settings
     string[] targetFiles = null;
     bool strict = false;
     string[] unrecognizedArgs;
+    bool readDirectly = false;
 }
 
 Settings read(string[] args)
@@ -44,6 +45,7 @@ in (!args.empty)
                 "dot", "Write dependency graph in the DOT language", &dot,
                 "check", "Check against the PlantUML target dependencies", &targetFiles,
                 "strict", "Do not use simplifying assumptions for the check", &strict,
+                "direct", "Do not invoke the compiler, but parse the given files directly", &readDirectly,
             );
         }
         catch (Exception exception)

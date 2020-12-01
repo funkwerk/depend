@@ -2,14 +2,18 @@
 // Distributed under the Boost Software License, Version 1.0.
 //    (See accompanying file LICENSE_1_0.txt or copy at
 //          https://www.boost.org/LICENSE_1_0.txt)
+module main;
 
 import core.stdc.stdlib;
 import deps;
+import direct;
 import graph;
 import model;
 import settings : readSettings = read;
 import std.algorithm;
 import std.array;
+import std.exception;
+import std.range;
 import std.regex;
 import std.stdio;
 import std.typecons;
@@ -21,39 +25,48 @@ void main(string[] args)
 
     with (settings)
     {
+        bool matches(T)(T dependency)
+        {
+            with (dependency)
+            {
+                if (pattern.empty)
+                {
+                    return unrecognizedArgs.canFind(client.path)
+                        && unrecognizedArgs.canFind(supplier.path);
+                }
+                else
+                {
+                    return client.path.matchFirst(pattern)
+                        && supplier.path.matchFirst(pattern);
+                }
+            }
+        }
+
         Dependency[] readDependencies(File file)
         {
-            if (pattern.empty)
-            {
-                bool matches(T)(T dependency)
-                {
-                    with (dependency)
-                    {
-                        return unrecognizedArgs.canFind(client.path)
-                            && unrecognizedArgs.canFind(supplier.path);
-                    }
-                }
-
-                return moduleDependencies!(dependency => matches(dependency))(file).array;
-            }
-            else
-            {
-                bool matches(T)(T dependency)
-                {
-                    with (dependency)
-                    {
-                        return client.path.matchFirst(pattern)
-                            && supplier.path.matchFirst(pattern);
-                    }
-                }
-
-                return moduleDependencies!(dependency => matches(dependency))(file).array;
-            }
+            return moduleDependencies!(dependency => matches(dependency))(file).array;
         }
 
         Dependency[] actualDependencies;
 
-        if (depsFiles.empty && umlFiles.empty)
+        if (readDirectly)
+        {
+            import std.string : strip;
+
+            enforce(depsFiles.empty, "Can't combine --deps and --direct");
+            enforce(umlFiles.empty, "Can't combine --uml and --direct");
+
+            const sources = unrecognizedArgs.filter!(a => a.endsWith(".d")).array;
+            const includes = unrecognizedArgs.filter!(a => a.startsWith("-I")).map!(a => a.drop(2).strip).array;
+
+            actualDependencies = sources
+                    .map!(a => extractImports(a, sources, includes))
+                    .joiner
+                    .filter!(dependency => matches(dependency))
+                    .map!(dependency => Dependency(dependency.client.name, dependency.supplier.name))
+                    .array;
+        }
+        else if (depsFiles.empty && umlFiles.empty)
         {
             import std.process : pipeProcess, Redirect, wait;
 
