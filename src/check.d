@@ -10,7 +10,7 @@ struct Checker
 
     private Dependency[]  implicitDependencies;
 
-    this(Dependency[] targetDependencies, bool strict)
+    this(Dependency[] targetDependencies, bool experimental)
     {
         import std.algorithm : partition;
 
@@ -25,13 +25,13 @@ struct Checker
 
         auto dependencies = targetDependencies.dup;
 
-        if (strict)
+        if (experimental)
         {
-            this.implicitDependencies = dependencies;
+            this.explicitDependencies = dependencies.partition!implict;
+            this.implicitDependencies = dependencies[0 .. $ - this.explicitDependencies.length];
             return;
         }
-        this.explicitDependencies = dependencies.partition!implict;
-        this.implicitDependencies = dependencies[0 .. $ - this.explicitDependencies.length];
+        this.implicitDependencies = dependencies;
 }
 
     bool allows(Dependency actualDependency)
@@ -52,7 +52,7 @@ unittest
         Dependency("b", "c"),
         ];
 
-    with (Checker(dependencies, No.strict))
+    with (Checker(dependencies, Yes.experimental))
     {
         allows(Dependency("a", "b")).shouldBeTrue;
         allows(Dependency("a.x", "b.y")).shouldBeTrue;

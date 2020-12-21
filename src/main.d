@@ -107,7 +107,7 @@ void main(string[] args)
             if (!transitive)
                 targetDependencies.transitiveClosure;
 
-            auto checker = Checker(targetDependencies, strict);
+            auto checker = Checker(targetDependencies, experimental);
 
             foreach (dependency; actualDependencies)
             {

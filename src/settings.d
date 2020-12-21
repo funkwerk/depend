@@ -16,7 +16,7 @@ struct Settings
     bool transitive = false;
     bool dot = false;
     string[] targetFiles = null;
-    bool strict = false;
+    bool experimental = false;
     string[] unrecognizedArgs;
     bool readDirectly = false;
 }
@@ -44,7 +44,7 @@ in (!args.empty)
                 "transitive|t", "Keep transitive dependencies", &transitive,
                 "dot", "Write dependency graph in the DOT language", &dot,
                 "check", "Check against the PlantUML target dependencies", &targetFiles,
-                "strict", "Do not use simplifying assumptions for the check", &strict,
+                "experimental", "Use simplifying assumptions for the check", &experimental,
                 "direct", "Do not invoke the compiler, but parse the given files directly", &readDirectly,
             );
         }
