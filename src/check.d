@@ -10,7 +10,7 @@ struct Checker
 
     private Dependency[]  implicitDependencies;
 
-    this(Dependency[] targetDependencies, bool experimental)
+    this(Dependency[] targetDependencies, bool simplify)
     {
         import std.algorithm : partition;
 
@@ -25,7 +25,7 @@ struct Checker
 
         auto dependencies = targetDependencies.dup;
 
-        if (experimental)
+        if (simplify)
         {
             this.explicitDependencies = dependencies.partition!implict;
             this.implicitDependencies = dependencies[0 .. $ - this.explicitDependencies.length];
@@ -52,7 +52,7 @@ unittest
         Dependency("b", "c"),
         ];
 
-    with (Checker(dependencies, Yes.experimental))
+    with (Checker(dependencies, Yes.simplify))
     {
         allows(Dependency("a", "b")).shouldBeTrue;
         allows(Dependency("a.x", "b.y")).shouldBeTrue;

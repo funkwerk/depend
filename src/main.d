@@ -6,8 +6,8 @@ module main;
 
 import core.stdc.stdlib;
 import deps;
-import direct;
 import graph;
+import imports;
 import model;
 import settings : readSettings = read;
 import std.algorithm;
@@ -49,24 +49,14 @@ void main(string[] args)
 
         Dependency[] actualDependencies;
 
-        if (readDirectly)
+        if (compiler.empty)
         {
-            import std.string : strip;
-
-            enforce(depsFiles.empty, "Can't combine --deps and --direct");
-            enforce(umlFiles.empty, "Can't combine --uml and --direct");
-
-            const sources = unrecognizedArgs.filter!(a => a.endsWith(".d")).array;
-            const includes = unrecognizedArgs.filter!(a => a.startsWith("-I")).map!(a => a.drop(2).strip).array;
-
-            actualDependencies = sources
-                    .map!(a => extractImports(a, sources, includes))
-                    .joiner
-                    .filter!(dependency => matches(dependency))
-                    .map!(dependency => Dependency(dependency.client.name, dependency.supplier.name))
-                    .array;
+            actualDependencies = scanImports(unrecognizedArgs)
+                .filter!(dependency => matches(dependency))
+                .map!(dependency => Dependency(dependency.client.name, dependency.supplier.name))
+                .array;
         }
-        else if (depsFiles.empty && umlFiles.empty)
+        else
         {
             import std.process : pipeProcess, Redirect, wait;
 
@@ -83,15 +73,12 @@ void main(string[] args)
 
             actualDependencies = readDependencies(pipes.stdout);
         }
-        else
-        {
-            actualDependencies ~= depsFiles
-                .map!(depsFile => readDependencies(File(depsFile)))
-                .join;
-            actualDependencies ~= umlFiles
-                .map!(umlFile => read(File(umlFile).byLine))
-                .join;
-        }
+        actualDependencies ~= depsFiles
+            .map!(depsFile => readDependencies(File(depsFile)))
+            .join;
+        actualDependencies ~= umlFiles
+            .map!(umlFile => read(File(umlFile).byLine))
+            .join;
         actualDependencies = actualDependencies.sort.uniq.array;
         if (!targetFiles.empty)
         {
@@ -107,7 +94,7 @@ void main(string[] args)
             if (!transitive)
                 targetDependencies.transitiveClosure;
 
-            auto checker = Checker(targetDependencies, experimental);
+            auto checker = Checker(targetDependencies, simplify);
 
             foreach (dependency; actualDependencies)
             {

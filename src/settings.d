@@ -8,17 +8,17 @@ version (unittest) import unit_threaded;
 
 struct Settings
 {
+    string compiler = null;
     string[] depsFiles = null;
-    string compiler = "dmd";
-    string pattern = null;
+    bool scan = false;
     string[] umlFiles = null;
+    string pattern = null;
     bool detail = false;
     bool transitive = false;
     bool dot = false;
     string[] targetFiles = null;
-    bool experimental = false;
+    bool simplify = false;
     string[] unrecognizedArgs;
-    bool readDirectly = false;
 }
 
 Settings read(string[] args)
@@ -36,16 +36,15 @@ in (!args.empty)
         {
             result = getopt(args,
                 config.passThrough,
+                "compiler|c", "Specify the compiler to use", &compiler,
                 "deps", "Read module dependencies from file", &depsFiles,
-                "compiler|c", "Specify the compiler to use (default: dmd)", &compiler,
-                "filter", "Filter source files  matching the regular expression", &pattern,
                 "uml", "Read dependencies from PlantUML file", &umlFiles,
+                "filter", "Filter source files  matching the regular expression", &pattern,
                 "detail", "Inspect dependencies between modules instead of packages", &detail,
                 "transitive|t", "Keep transitive dependencies", &transitive,
                 "dot", "Write dependency graph in the DOT language", &dot,
                 "check", "Check against the PlantUML target dependencies", &targetFiles,
-                "experimental", "Use simplifying assumptions for the check", &experimental,
-                "direct", "Do not invoke the compiler, but parse the given files directly", &readDirectly,
+                "simplify", "Use simplifying assumptions for the check (experimental)", &simplify,
             );
         }
         catch (Exception exception)
@@ -59,6 +58,7 @@ in (!args.empty)
 
             writefln("Usage: %s [options] files", args.front.baseName);
             writeln("Process import dependencies as created by dmd with the --deps switch.");
+            writeln("If no compiler is specified, source files are scanned for (simple) import declarations.");
             defaultGetoptPrinter("Options:", result.options);
             exit(EXIT_SUCCESS);
         }
