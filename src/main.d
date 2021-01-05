@@ -14,7 +14,6 @@ import std.algorithm;
 import std.array;
 import std.exception;
 import std.range;
-import std.regex;
 import std.stdio;
 import std.typecons;
 import uml;
@@ -25,36 +24,39 @@ void main(string[] args)
 
     with (settings)
     {
-        bool matches(T)(T dependency)
+        auto readDependencies(File file)
         {
-            with (dependency)
-            {
-                if (pattern.empty)
-                {
-                    return unrecognizedArgs.canFind(client.path)
-                        && unrecognizedArgs.canFind(supplier.path);
-                }
-                else
-                {
-                    return client.path.matchFirst(pattern)
-                        && supplier.path.matchFirst(pattern);
-                }
-            }
-        }
+            import std.regex : matchFirst, Regex;
 
-        Dependency[] readDependencies(File file)
-        {
-            return moduleDependencies!(dependency => matches(dependency))(file).array;
+            if (pattern != Regex!char())
+            {
+                bool matches(T)(T dependency)
+                {
+                    with (dependency)
+                        return client.path.matchFirst(pattern)
+                            && supplier.path.matchFirst(pattern);
+                }
+
+                return moduleDependencies!(dependency => matches(dependency))(file).array;
+            }
+            else
+            {
+                bool matches(T)(T dependency)
+                {
+                    with (dependency)
+                        return unrecognizedArgs.canFind(client.path)
+                            && unrecognizedArgs.canFind(supplier.path);
+                }
+
+                return moduleDependencies!(dependency => matches(dependency))(file).array;
+            }
         }
 
         Dependency[] actualDependencies;
 
         if (compiler.empty)
         {
-            actualDependencies = scanImports(unrecognizedArgs)
-                .filter!(dependency => matches(dependency))
-                .map!(dependency => Dependency(dependency.client.name, dependency.supplier.name))
-                .array;
+            actualDependencies = mutualDependencies(unrecognizedArgs).array;
         }
         else
         {

@@ -3,33 +3,36 @@ module settings;
 import core.stdc.stdlib;
 import model;
 import std.range;
+import std.regex;
 import std.stdio;
 version (unittest) import unit_threaded;
 
 struct Settings
 {
-    string compiler = null;
-    string[] depsFiles = null;
-    bool scan = false;
-    string[] umlFiles = null;
-    string pattern = null;
-    bool detail = false;
-    bool transitive = false;
-    bool dot = false;
-    string[] targetFiles = null;
-    bool simplify = false;
+    string compiler;
+    string[] depsFiles;
+    bool scan;
+    string[] umlFiles;
+    Regex!char pattern;
+    bool detail;
+    bool transitive;
+    bool dot;
+    string[] targetFiles;
+    bool simplify;
     string[] unrecognizedArgs;
 }
 
 Settings read(string[] args)
 in (!args.empty)
 {
+    import std.exception : enforce;
     import std.getopt : config, defaultGetoptPrinter, getopt, GetoptResult;
 
     Settings settings;
 
     with (settings)
     {
+        string filter;
         GetoptResult result;
 
         try
@@ -39,13 +42,20 @@ in (!args.empty)
                 "compiler|c", "Specify the compiler to use", &compiler,
                 "deps", "Read module dependencies from file", &depsFiles,
                 "uml", "Read dependencies from PlantUML file", &umlFiles,
-                "filter", "Filter source files  matching the regular expression", &pattern,
+                "filter", "Filter source files  matching the regular expression", &filter,
                 "detail", "Inspect dependencies between modules instead of packages", &detail,
                 "transitive|t", "Keep transitive dependencies", &transitive,
                 "dot", "Write dependency graph in the DOT language", &dot,
                 "check", "Check against the PlantUML target dependencies", &targetFiles,
                 "simplify", "Use simplifying assumptions for the check (experimental)", &simplify,
             );
+            if (!filter.empty)
+            {
+                enforce(!compiler.empty || !depsFiles.empty,
+                        "filter can only be applied to dependencies collected by a compiler");
+
+                pattern = regex(filter);
+            }
         }
         catch (Exception exception)
         {

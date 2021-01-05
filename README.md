@@ -10,7 +10,7 @@ Example
 -------
 
 Using the `depend` tool on the code of the popular [vibe.d][] repository gives an overview of the package dependencies:
-[package diagram](https://raw.githubusercontent.com/wiki/funkwerk/depend/images/vibe.png)
+[package diagram](../media/vibe.png?raw=true)
 
 Usage
 -----
@@ -23,7 +23,7 @@ Run the `depend` tool like you run `dmd` (most arguments are just passed to `dmd
 
 For example, run the `depend` tool on its own code:
 
-    depend src/*.d
+    depend --compiler dmd src/*.d
 
 Consider switching to module dependencies instead of package dependencies:
 
@@ -32,19 +32,32 @@ Consider switching to module dependencies instead of package dependencies:
 The output is a package diagram in the [PlantUML][] language:
 
     @startuml
+    package check {}
     package deps {}
     package graph {}
+    package imports {}
     package main {}
+    package model {}
+    package settings {}
     package uml {}
 
+    check ..> model
+    deps ..> model
+    graph ..> model
+    imports ..> model
+    main ..> check
     main ..> deps
+    main ..> graph
+    main ..> imports
+    main ..> settings
     main ..> uml
-    uml ..> graph
+    settings ..> model
+    uml ..> model
     @enduml
 
 Copy and paste the output to the [PlantUML Server][] for visualization:
 
-![package diagram](https://raw.githubusercontent.com/wiki/funkwerk/depend/images/self.png)
+![package diagram](../media/self.png?raw=true)
 
 For checking, specify the target dependencies in the [PlantUML][] language.
 For example, create a text file `target.uml`.

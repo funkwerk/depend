@@ -1,123 +1,119 @@
 module imports;
 
+import model;
 import std.algorithm;
 import std.array;
-import std.path;
 import std.range;
-import std.regex;
 import std.typecons;
 
 version (unittest) import unit_threaded;
 
-public auto scanImports(const string[] args)
+auto mutualDependencies(const string[] args)
 {
-    const lookup = Lookup(args);
+    string[][string] importedModules;
 
-    return lookup.sourceFiles
-        .map!(sourceFile => extractImports(sourceFile, lookup))
-        .joiner;
+    foreach (arg; args)
+        with (readImports(arg))
+            importedModules[client] ~= suppliers;
+    return importedModules.byKeyValue
+        .map!(pair => pair.value.map!(supplier => Dependency(pair.key, supplier)))
+        .joiner
+        .filter!(dependency => dependency.supplier.toString in importedModules);
 }
 
-public auto extractImports(const string file, Lookup lookup)
+auto readImports(string file)
 {
     import std.file : readText;
+    import std.path : baseName, stripExtension;
 
-    alias Module = Tuple!(string, "name", string, "path");
-    alias Dependency = Tuple!(Module, "client", Module, "supplier");
-
-    auto toModule(string name)
-    {
-        return Module(name, lookup.path(name));
-    }
-
-    const source = file.readText;
-    const moduleName = declaredModule(source);
-
-    return importedModules(source)
-        .map!(name => Dependency(Module(moduleName, file), toModule(name)))
+    const input = file.readText;
+    auto captures = moduleDeclaration(input);
+    const client = captures
+        ? captures["fullyQualifiedName"].toFullyQualifiedName
+        : file.baseName.stripExtension;
+    const suppliers = importDeclarations(input)
+        .map!(captures => captures["fullyQualifiedName"].toFullyQualifiedName)
         .array;
+
+    return tuple!("client", "suppliers")(client, suppliers);
 }
 
-string declaredModule(R)(R input)
+auto moduleDeclaration(R)(R input)
+{
+    import std.regex : matchFirst, regex;
+
+    // TODO: skip comments, string literals
+    enum pattern = regex(`\bmodule\s+` ~ fullyQualifiedName ~ `\s*;`);
+
+    return input.matchFirst(pattern);
+}
+
+@("match module declaration")
+unittest
+{
+    auto captures = moduleDeclaration("module bar.baz;");
+
+    captures.shouldBeTrue;
+    captures["fullyQualifiedName"].should.be == "bar.baz";
+}
+
+@("match module declaration with white space")
+unittest
+{
+    auto captures = moduleDeclaration("module bar . baz\n;");
+
+    captures.shouldBeTrue;
+    captures["fullyQualifiedName"].should.be == "bar . baz";
+}
+
+auto importDeclarations(R)(R input)
+{
+    import std.regex : matchAll, regex;
+
+    // TODO: skip comments, string literals
+    enum pattern = regex(`\bimport\s+(\w+\s*=\s*)?` ~ fullyQualifiedName ~ `[^;]*;`);
+
+    return input.matchAll(pattern);
+}
+
+@("match import declaration")
+unittest
+{
+    auto match = importDeclarations("import bar.baz;");
+
+    match.shouldBeTrue;
+    match.map!`a["fullyQualifiedName"]`.shouldEqual(["bar.baz"]);
+}
+
+@("match import declaration with white space")
+unittest
+{
+    auto match = importDeclarations("import bar . baz\n;");
+
+    match.shouldBeTrue;
+    match.map!`a["fullyQualifiedName"]`.shouldEqual(["bar . baz"]);
+}
+
+@("match renamed import")
+unittest
+{
+    auto match = importDeclarations("import foo = bar.baz;");
+
+    match.shouldBeTrue;
+    match.map!`a["fullyQualifiedName"]`.shouldEqual(["bar.baz"]);
+}
+
+enum fullyQualifiedName = `(?P<fullyQualifiedName>\w+(\s*\.\s*\w+)*)`;
+
+string toFullyQualifiedName(string text)
 {
     import std.string : join, strip;
 
-    enum fullyQualifiedName = `(?P<fullyQualifiedName>\w+(\s*\.\s*\w+)*)`;
-    enum pattern = regex(`\bmodule\s+` ~ fullyQualifiedName);
-
-    // TODO: skip comments, string literals
-    if (auto captures = input.matchFirst(pattern))
-    {
-        return captures["fullyQualifiedName"].splitter('.').map!strip.join('.');
-    }
-    return null;  // FIXME: fall back to basename?
+    return text.splitter('.').map!strip.join('.');
 }
 
-@("scan module declaration")
+@("convert text to fully-qualified name")
 unittest
 {
-    declaredModule("module bar.baz;").should.be == "bar.baz";
-    declaredModule("module bar . baz;").should.be == "bar.baz";
-}
-
-auto importedModules(R)(R input)
-{
-    import std.string : join, strip;
-
-    enum fullyQualifiedName = `(?P<fullyQualifiedName>\w+(\s*\.\s*\w+)*)`;
-    enum pattern = regex(`\bimport\s+(\w+\s*=\s*)?` ~ fullyQualifiedName);
-
-    // TODO: skip comments, string literals
-    return input.matchAll(pattern)
-        .map!(a => a["fullyQualifiedName"].splitter('.').map!strip.join('.'));
-}
-
-@("scan import declarations")
-unittest
-{
-    importedModules("import bar.baz;").shouldEqual(["bar.baz"]);
-    importedModules("import foo = bar.baz;").shouldEqual(["bar.baz"]);
-    importedModules("import bar . baz;").shouldEqual(["bar.baz"]);
-}
-
-struct Lookup
-{
-    const string[] sourceFiles;
-
-    const string[] importPaths;
-
-    this(const string[] args)
-    {
-        import std.string : chompPrefix;
-
-        sourceFiles = args
-            .filter!(arg => arg.extension == ".d")
-            .array;
-        importPaths = args
-            .filter!(arg => arg.startsWith("-I"))
-            .map!(arg => arg.chompPrefix("-I"))
-            .array;
-    }
-
-    string path(string fullyQualifiedName)
-    {
-        const path = fullyQualifiedName.splitter(".").buildPath.setExtension(".d");
-        const packagePath = chain(fullyQualifiedName.splitter("."), only("package")).buildPath.setExtension(".d");
-
-        return chain(
-                match(path),
-                match(packagePath),
-                only(path),
-        ).front;
-    }
-
-    auto match(string partialPath)
-    {
-        import std.file : exists;
-
-        return chain(
-                sourceFiles.filter!(path => path.pathSplitter.endsWith(partialPath.pathSplitter)),
-                importPaths.map!(path => buildPath(path, partialPath)).filter!(path => path.exists),
-        );
-    }
+    "bar . baz".toFullyQualifiedName.should.be == "bar.baz";
 }
