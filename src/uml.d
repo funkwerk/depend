@@ -121,7 +121,7 @@ private struct Package
 
     Dependency[] dependencies;
 
-    void add(Dependency dependency)
+    void add(Dependency dependency) nothrow
     {
         const clientPath = dependency.client.names;
         const supplierPath = dependency.supplier.names;
@@ -132,7 +132,7 @@ private struct Package
         addDependency(path, dependency);
     }
 
-    void addPackage(const string[] path, size_t index = 0)
+    void addPackage(const string[] path, size_t index = 0) nothrow
     {
         if (path[index] !in subpackages)
             subpackages[path[index]] = Package(path[0 .. index + 1].dup);
@@ -140,7 +140,7 @@ private struct Package
             subpackages[path[index]].addPackage(path, index + 1);
     }
 
-    void addDependency(const string[] path, Dependency dependency)
+    void addDependency(const string[] path, Dependency dependency) nothrow
     {
         if (path.empty)
             dependencies ~= dependency;

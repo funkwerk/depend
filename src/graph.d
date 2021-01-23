@@ -48,7 +48,7 @@ unittest
     output.data.should.be == outdent(expected).stripLeft;
 }
 
-void transitiveClosure(ref Dependency[] dependencies)
+void transitiveClosure(ref Dependency[] dependencies) nothrow
 {
     FullyQualifiedName[] elements = dependencies.elements;
 
@@ -117,7 +117,7 @@ unittest
     cyclicDependencies.sort.should.be == dependencies;
 }
 
-FullyQualifiedName[] elements(Dependency[] dependencies)
+FullyQualifiedName[] elements(Dependency[] dependencies) nothrow
 {
     FullyQualifiedName[] elements = null;
 

@@ -13,13 +13,13 @@ struct Dependency
         this(FullyQualifiedName(client), FullyQualifiedName(supplier));
     }
 
-    this(FullyQualifiedName client, FullyQualifiedName supplier)
+    this(FullyQualifiedName client, FullyQualifiedName supplier) @nogc nothrow
     {
         this.client = client;
         this.supplier = supplier;
     }
 
-    int opCmp(ref const Dependency that) const
+    int opCmp(ref const Dependency that) const @nogc nothrow pure @safe
     {
         import std.algorithm : cmp;
 
@@ -44,12 +44,12 @@ struct FullyQualifiedName
         this(name.split('.'));
     }
 
-    this(string[] names)
+    this(string[] names) nothrow
     {
         this.names = names.dup;
     }
 
-    string toString() const
+    string toString() const pure @safe
     {
         import std.string : join;
 
@@ -57,7 +57,7 @@ struct FullyQualifiedName
     }
 }
 
-string packages(FullyQualifiedName fullyQualifiedName)
+string packages(FullyQualifiedName fullyQualifiedName) pure @safe
 {
     import std.algorithm : splitter;
     import std.array : join;

@@ -10,7 +10,7 @@ struct Checker
 
     private Dependency[]  implicitDependencies;
 
-    this(Dependency[] targetDependencies, bool simplify)
+    this(Dependency[] targetDependencies, bool simplify) nothrow
     {
         import std.algorithm : partition;
 
@@ -34,7 +34,7 @@ struct Checker
         this.implicitDependencies = dependencies;
 }
 
-    bool allows(Dependency actualDependency)
+    bool allows(Dependency actualDependency)@nogc nothrow
     {
         import std.algorithm : any;
 
@@ -63,7 +63,7 @@ unittest
     }
 }
 
-bool implies(Dependency lhs, Dependency rhs)
+bool implies(Dependency lhs, Dependency rhs) @nogc nothrow
 {
     import std.algorithm : startsWith;
 
